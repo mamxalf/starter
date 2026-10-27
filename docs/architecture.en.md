@@ -221,7 +221,44 @@ One 1–2 GB VPS is enough: one Docker image runs the API and serves the SPA, th
 - Multi-stage `Dockerfile`: esbuild bundles the API into `dist/server.js`, `dist/worker.js`, `dist/migrate.js`; the runtime installs only packages that cannot be bundled.
 - `config/deploy.yml` (Kamal 2): `web` and `worker` roles, a Postgres accessory, `/readyz` health check.
 - Secrets in `.kamal/secrets` (gitignored; see `.kamal/secrets.example`).
-- Postgres backups: schedule a daily `pg_dump` to S3 storage.
+- Postgres backups: `scripts/backup.sh` + cron, see [Backup and restore](#backup-and-restore).
+
+### Backup and restore
+
+`scripts/backup.sh` runs on the VPS host (it needs `docker` and the `aws` CLI, neither is in the app image). It dumps the database with `pg_dump -Fc` inside the Kamal Postgres accessory (`starter-db`), checks the dump with `pg_restore --list`, and uploads it to `BACKUP_S3_URI` as `<db>-<UTC timestamp>.dump`. Nothing is uploaded if the dump is empty or unreadable. The job queue lives in the same database, so it is covered too.
+
+```bash
+# /etc/starter-backup.env (chmod 600): BACKUP_S3_URI, S3_ENDPOINT, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY
+15 2 * * *  . /etc/starter-backup.env && /opt/starter/backup.sh >> /var/log/starter-backup.log 2>&1
+```
+
+- Use a bucket separate from user uploads, and add a lifecycle rule (for example delete after 30 days). Retention is not the script's job.
+- Uploaded files live in the object store and are **not** in this dump. Turn on versioning or replication on that bucket if you need them back.
+- `DRY_RUN=1 scripts/backup.sh` prints what would run.
+
+**Restore** (the app keeps serving from the old database until the swap):
+
+```bash
+# 1. Fetch the dump
+aws --endpoint-url "$S3_ENDPOINT" s3 ls s3://my-backups/starter/
+aws --endpoint-url "$S3_ENDPOINT" s3 cp s3://my-backups/starter/app-<timestamp>.dump /tmp/restore.dump
+
+# 2. Restore into a NEW database. Do not use --no-owner: the app role must own the tables,
+#    because FORCE ROW LEVEL SECURITY applies to the owner and `app` is not a superuser.
+docker exec starter-db psql -U postgres -c "create database app_restore owner app"
+docker exec -i starter-db pg_restore -U postgres -d app_restore --exit-on-error < /tmp/restore.dump
+
+# 3. Check it: row counts and the number of applied migrations
+docker exec starter-db psql -U postgres -d app_restore -c "select count(*) from tenants" -c "select count(*) from kysely_migration"
+
+# 4. Swap (renaming needs zero open connections, so stop the app first)
+kamal app stop
+docker exec starter-db psql -U postgres -c "alter database app rename to app_old" -c "alter database app_restore rename to app"
+kamal app boot
+```
+
+Keep `app_old` until the restored data is confirmed, then drop it. A backup you have never restored is a guess: restore the latest dump into a scratch database once a month and run the step 3 checks.
+
 
 ## 15. Deferred or not done
 

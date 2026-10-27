@@ -221,7 +221,44 @@ Satu VPS 1–2 GB cukup: satu image Docker menjalankan API sekaligus menyajikan 
 - `Dockerfile` multi-stage: API di-bundle esbuild menjadi `dist/server.js`, `dist/worker.js`, `dist/migrate.js`; runtime hanya memasang paket yang tidak bisa di-bundle.
 - `config/deploy.yml` (Kamal 2): role `web` dan `worker`, accessory Postgres, health check `/readyz`.
 - Secrets di `.kamal/secrets` (gitignored; lihat `.kamal/secrets.example`).
-- Backup Postgres: jadwalkan `pg_dump` harian ke storage S3.
+- Backup Postgres: `scripts/backup.sh` + cron, lihat [Backup dan restore](#backup-dan-restore).
+
+### Backup dan restore
+
+`scripts/backup.sh` dijalankan di host VPS (butuh `docker` dan CLI `aws`, keduanya tidak ada di image aplikasi). Skrip membuat dump dengan `pg_dump -Fc` di dalam accessory Postgres Kamal (`starter-db`), memeriksanya dengan `pg_restore --list`, lalu meng-upload ke `BACKUP_S3_URI` sebagai `<db>-<timestamp UTC>.dump`. Tidak ada yang di-upload bila dump kosong atau tidak terbaca. Antrean job berada di database yang sama, jadi ikut tercakup.
+
+```bash
+# /etc/starter-backup.env (chmod 600): BACKUP_S3_URI, S3_ENDPOINT, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY
+15 2 * * *  . /etc/starter-backup.env && /opt/starter/backup.sh >> /var/log/starter-backup.log 2>&1
+```
+
+- Pakai bucket terpisah dari upload pengguna, dan pasang lifecycle rule (misalnya hapus setelah 30 hari). Retensi bukan tugas skrip.
+- File yang di-upload pengguna ada di object storage dan **tidak** ikut dump ini. Aktifkan versioning atau replikasi pada bucket itu bila perlu.
+- `DRY_RUN=1 scripts/backup.sh` hanya menampilkan perintah yang akan dijalankan.
+
+**Restore** (aplikasi tetap melayani dari database lama sampai langkah tukar):
+
+```bash
+# 1. Ambil dump
+aws --endpoint-url "$S3_ENDPOINT" s3 ls s3://my-backups/starter/
+aws --endpoint-url "$S3_ENDPOINT" s3 cp s3://my-backups/starter/app-<timestamp>.dump /tmp/restore.dump
+
+# 2. Restore ke database BARU. Jangan pakai --no-owner: role app harus memiliki tabel,
+#    karena FORCE ROW LEVEL SECURITY berlaku untuk pemilik tabel dan `app` bukan superuser.
+docker exec starter-db psql -U postgres -c "create database app_restore owner app"
+docker exec -i starter-db pg_restore -U postgres -d app_restore --exit-on-error < /tmp/restore.dump
+
+# 3. Periksa: jumlah baris dan jumlah migrasi yang sudah terpasang
+docker exec starter-db psql -U postgres -d app_restore -c "select count(*) from tenants" -c "select count(*) from kysely_migration"
+
+# 4. Tukar (rename butuh nol koneksi terbuka, jadi hentikan aplikasi dulu)
+kamal app stop
+docker exec starter-db psql -U postgres -c "alter database app rename to app_old" -c "alter database app_restore rename to app"
+kamal app boot
+```
+
+Simpan `app_old` sampai data hasil restore dipastikan benar, lalu hapus. Backup yang belum pernah di-restore hanyalah tebakan: restore dump terbaru ke database sementara sebulan sekali dan jalankan pemeriksaan langkah 3.
+
 
 ## 15. Ditunda atau tidak dilakukan
 
