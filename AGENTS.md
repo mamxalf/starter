@@ -11,22 +11,25 @@ The user communicates mostly in Bahasa Indonesia; code, comments and commit mess
 
 ## Map
 
-| Path                   | What lives there                                                                               |
-| ---------------------- | ---------------------------------------------------------------------------------------------- |
-| `apps/api`             | Fastify + oRPC API. `src/modules/<name>/` = router, service, repo, test                        |
-| `apps/api/src/core`    | Cross-cutting: `users` (identity resolution), `policy`, `audit`, `billing`, `errors`           |
-| `apps/api/src/orpc.ts` | Middleware chain: `authed` → `tenantRead` → `tenantWrite`                                      |
-| `apps/api/src/deps.ts` | The only place adapters are chosen (auth, mail, storage, queue)                                |
-| `apps/api/src/jobs`    | `definitions.ts` (name + schema), `handlers.ts` (worker side)                                  |
-| `apps/web`             | Vite SPA dashboard. TanStack Router file routes in `src/routes`                                |
-| `apps/site`            | Astro static landing page (SEO, i18n). No server code                                          |
-| `packages/contracts`   | oRPC contract + Zod schemas. Source of truth for the API surface                               |
-| `packages/db`          | Kysely client, migrations, generated `types.ts`, `withTenant`/`withSystem`                     |
-| `packages/auth`        | `AuthPort`, adapters (`clerk`, `fake`), React wrappers (`/react`), contract tests (`/testing`) |
-| `packages/platform`    | Ports: `context`, `logger`, `mail`, `storage`, `payment`, `jobs`                               |
-| `packages/ui`          | Components + theme CSS (`src/styles/themes/*.css`)                                             |
-| `packages/i18n`        | `messages/{id,en}.json` compiled by Paraglide into `src/paraglide` (gitignored)                |
-| `turbo/generators`     | `pnpm gen module` templates                                                                    |
+| Path                           | What lives there                                                                                                |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `apps/api`                     | Fastify + oRPC API. `src/modules/<name>/` = router, service, repo, test                                         |
+| `apps/api/src/core`            | Cross-cutting: `users` (identity resolution), `policy`, `audit`, `billing`, `errors`                            |
+| `apps/api/src/orpc.ts`         | Middleware chain: `authed` → `tenantRead` → `tenantWrite`                                                       |
+| `apps/api/src/deps.ts`         | The only place adapters are chosen (auth, mail, storage, queue)                                                 |
+| `apps/api/src/jobs`            | `definitions.ts` (name + schema), `handlers.ts` (worker side)                                                   |
+| `apps/web`                     | Vite SPA dashboard. TanStack Router file routes in `src/routes`                                                 |
+| `apps/site`                    | Astro static landing page (SEO, i18n). No server code                                                           |
+| `apps/admin`                   | Platform admin back-office (Vite SPA, **shadcn/ui**). Own rules: `apps/admin/AGENTS.md`                         |
+| `apps/api/src/admin`           | Admin API at `/api/admin/rpc`: `platformAdmin` middleware, cross-tenant services (`withSystem`), platform audit |
+| `packages/contracts/src/admin` | Admin contract, exported only via `@starter/contracts/admin`                                                    |
+| `packages/contracts`           | oRPC contract + Zod schemas. Source of truth for the API surface                                                |
+| `packages/db`                  | Kysely client, migrations, generated `types.ts`, `withTenant`/`withSystem`                                      |
+| `packages/auth`                | `AuthPort`, adapters (`clerk`, `fake`), React wrappers (`/react`), contract tests (`/testing`)                  |
+| `packages/platform`            | Ports: `context`, `logger`, `mail`, `storage`, `payment`, `jobs`                                                |
+| `packages/ui`                  | Components + theme CSS (`src/styles/themes/*.css`)                                                              |
+| `packages/i18n`                | `messages/{id,en}.json` compiled by Paraglide into `src/paraglide` (gitignored)                                 |
+| `turbo/generators`             | `pnpm gen module` templates                                                                                     |
 
 ## Commands
 
@@ -44,6 +47,9 @@ pnpm check:boundaries                # dependency rules
 pnpm db:new add_archived_at          # new migration (then edit it)
 pnpm db:migrate                      # apply + regenerate packages/db/src/types.ts
 pnpm gen module                      # scaffold a tenant-scoped CRUD module
+
+pnpm --filter @starter/admin dev                       # admin on :5174
+pnpm --filter @starter/admin exec shadcn add <c>       # add a shadcn component (admin only)
 ```
 
 API tests need Postgres at `TEST_DATABASE_URL` (a non-superuser role, see `docker/postgres/init.sql`).
@@ -62,6 +68,9 @@ API tests need Postgres at `TEST_DATABASE_URL` (a non-superuser role, see `docke
 10. **Migrations are append-only once merged.** Fix forward with a new migration. Register new ones in `src/migrations/index.ts` (`pnpm db:new` does this).
 11. **User-facing strings go through i18n** (`m.key()`), in both `id.json` and `en.json`. Server code passes the locale explicitly.
 12. **Send email only via the `email.send` job**, never `mailer.send` from a request.
+13. **Two UI systems, never mixed.** Product UI (`apps/web`, `apps/site`) uses `@starter/ui` (themeable, semantic tokens). Platform admin (`apps/admin`) uses shadcn/ui source in `apps/admin/src/components/ui`. `apps/admin` never imports `@starter/ui`; shadcn components never go into `packages/ui` unchanged.
+14. **Admin API is isolated.** Only `apps/admin` may import `@starter/contracts/admin`. Admin procedures live in `apps/api/src/admin`, always behind `platformAdmin`, and every mutation requires a `reason` and writes `platform_audit_events`.
+15. **`withSystem` outside jobs/webhooks/seeds is allowed only in `apps/api/src/admin`.**
 
 ## How to add a feature module
 
@@ -100,6 +109,8 @@ API tests need Postgres at `TEST_DATABASE_URL` (a non-superuser role, see `docke
 - **Paraglide output is generated.** Turborepo builds `@starter/i18n` before dependents; after editing messages outside Turbo run `pnpm --filter @starter/i18n build`.
 - **RLS + superuser:** if tests unexpectedly see other tenants' rows, the connection is a superuser. Use the `app` role.
 - **Dev auth:** `AUTH_PROVIDER=fake` + `VITE_AUTH_PROVIDER=dev` signs in with any email. Refused in production.
+- **shadcn in a TypeScript 7 monorepo:** the `@/` alias uses `paths` only (no `baseUrl`) in `apps/admin/tsconfig.json`, mirrored in `vite.config.ts`. Run the shadcn CLI from `apps/admin`, never from the repo root.
+- **Admin is English-only** and exempt from the i18n rule (rule 11 applies to `apps/web` and `apps/site`).
 - **TanStack Router:** search params with `.default()` are optional for links; `routeTree.gen.ts` is regenerated by `tsr generate` (part of `typecheck`) or the Vite plugin.
 
 ## Definition of done

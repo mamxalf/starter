@@ -14,27 +14,29 @@ Starter ini adalah fondasi pribadi untuk membangun SaaS multi-tenant dengan Type
 
 ## 2. Ringkasan keputusan
 
-| Area          | Keputusan                                          | Alasan utama                                         |
-| ------------- | -------------------------------------------------- | ---------------------------------------------------- |
-| Monorepo      | pnpm workspaces + Turborepo                        | Ringan, caching, `turbo gen` untuk scaffolding       |
-| Runtime       | Node 22+                                           | LTS, stabil                                          |
-| Landing       | Astro statis + i18n, di CDN                        | SEO terbaik, nol JS default, hosting gratis          |
-| Dashboard     | Vite SPA + TanStack Router/Query/Form              | Type-safe, search params sebagai state, tanpa server |
-| UI            | Tailwind v4 + komponen sendiri + tailwind-variants | Komponen milik sendiri, tema via token               |
-| API           | Fastify + oRPC                                     | Kontrak typesafe, tidak terikat framework            |
-| Validasi      | Zod                                                | Schema dipakai bersama API dan form                  |
-| Database      | PostgreSQL + Kysely                                | DB sebagai sumber kebenaran, tipe digenerate         |
-| Tenancy       | `tenant_id` + RLS, URL berbasis path               | Satu migrasi, isolasi dua lapis                      |
-| Auth          | Clerk di balik `AuthPort`                          | Identitas dari vendor, membership milik sendiri      |
-| Otorisasi     | Role per membership + fungsi policy                | Sederhana, mudah ditest                              |
-| i18n          | Paraglide JS di `packages/i18n`                    | Type-safe, dipakai di Astro, Vite, dan email         |
-| Billing       | Model 1: plan, entitlement, invoice via job        | Cocok untuk pembayaran sekali bayar di Indonesia     |
-| Upload        | Presigned URL ke storage S3-compatible             | File tidak lewat server                              |
-| Email         | React Email + `Mailer` port, kirim via job         | Retry otomatis, template multi-bahasa                |
-| Jobs          | pg-boss                                            | Tanpa Redis                                          |
-| Observability | pino + Sentry SDK + audit log                      | Minimal tapi cukup                                   |
-| Kualitas      | Biome, Vitest, Lefthook                            | Cepat, satu tool per tugas                           |
-| Deploy        | Satu image + worker + Postgres via Kamal           | Zero-downtime di satu VPS                            |
+| Area           | Keputusan                                                                          | Alasan utama                                                        |
+| -------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Monorepo       | pnpm workspaces + Turborepo                                                        | Ringan, caching, `turbo gen` untuk scaffolding                      |
+| Runtime        | Node 22+                                                                           | LTS, stabil                                                         |
+| Landing        | Astro statis + i18n, di CDN                                                        | SEO terbaik, nol JS default, hosting gratis                         |
+| Dashboard      | Vite SPA + TanStack Router/Query/Form                                              | Type-safe, search params sebagai state, tanpa server                |
+| UI             | Tailwind v4 + komponen sendiri + tailwind-variants                                 | Komponen milik sendiri, tema via token                              |
+| API            | Fastify + oRPC                                                                     | Kontrak typesafe, tidak terikat framework                           |
+| Validasi       | Zod                                                                                | Schema dipakai bersama API dan form                                 |
+| Database       | PostgreSQL + Kysely                                                                | DB sebagai sumber kebenaran, tipe digenerate                        |
+| Tenancy        | `tenant_id` + RLS, URL berbasis path                                               | Satu migrasi, isolasi dua lapis                                     |
+| Auth           | Clerk di balik `AuthPort`                                                          | Identitas dari vendor, membership milik sendiri                     |
+| Otorisasi      | Role per membership + fungsi policy                                                | Sederhana, mudah ditest                                             |
+| i18n           | Paraglide JS di `packages/i18n`                                                    | Type-safe, dipakai di Astro, Vite, dan email                        |
+| Billing        | Model 1: plan, entitlement, invoice via job                                        | Cocok untuk pembayaran sekali bayar di Indonesia                    |
+| Upload         | Presigned URL ke storage S3-compatible                                             | File tidak lewat server                                             |
+| Email          | React Email + `Mailer` port, kirim via job                                         | Retry otomatis, template multi-bahasa                               |
+| Jobs           | pg-boss                                                                            | Tanpa Redis                                                         |
+| Observability  | pino + Sentry SDK + audit log                                                      | Minimal tapi cukup                                                  |
+| Kualitas       | Biome, Vitest, Lefthook                                                            | Cepat, satu tool per tugas                                          |
+| Deploy         | Satu image + worker + Postgres via Kamal                                           | Zero-downtime di satu VPS                                           |
+| Admin platform | App, kontrak, mount API, host, dan audit terpisah; allowlist + email terverifikasi | Satu-satunya kode lintas tenant terisolasi                          |
+| UI admin       | shadcn/ui di `apps/admin`; `@starter/ui` tetap untuk produk                        | Tabel data dan dialog matang untuk alat internal; tema untuk produk |
 
 ## 3. Struktur monorepo
 
@@ -42,6 +44,7 @@ Starter ini adalah fondasi pribadi untuk membangun SaaS multi-tenant dengan Type
 apps/
   site/        Astro: landing, pricing (statis, i18n) → CDN
   web/         Vite SPA: dashboard → disajikan oleh api (same-origin)
+  admin/       Vite SPA + shadcn/ui: back-office platform → disajikan oleh api di ADMIN_HOST
   api/         Fastify + oRPC. Entry: server.ts, worker.ts, migrate.ts (satu image)
 packages/
   contracts/   Kontrak oRPC + schema Zod. Satu-satunya batas frontend ↔ backend
@@ -58,6 +61,7 @@ Aturan dependensi (diperiksa `pnpm check:boundaries` di pre-push dan CI):
 
 - `packages/*` tidak boleh mengimpor `apps/*` (tag Turborepo `lib` ↛ `app`).
 - `apps/web` dan `apps/site` tidak boleh bergantung pada `db` atau `platform` (tag `frontend` ↛ `server-only`).
+- `apps/admin` tidak boleh mengimpor `@starter/ui`; hanya `apps/admin`, `apps/api/src/admin`, dan `packages/contracts` yang boleh mengimpor `@starter/contracts/admin`; tidak ada yang di luar `apps/admin` boleh mengimpor darinya (`scripts/check-module-boundaries.mjs`).
 - Modul API tidak boleh mengimpor `*.repo.ts` milik modul lain; harus lewat service-nya (`scripts/check-module-boundaries.mjs`).
 - Kode bisnis tidak mengimpor SDK vendor secara langsung; hanya lewat port.
 
@@ -260,7 +264,35 @@ kamal app boot
 Simpan `app_old` sampai data hasil restore dipastikan benar, lalu hapus. Backup yang belum pernah di-restore hanyalah tebakan: restore dump terbaru ke database sementara sebulan sekali dan jalankan pemeriksaan langkah 3.
 
 
-## 15. Ditunda atau tidak dilakukan
+## 15. Admin platform
+
+Back-office untuk **pemilik platform**, bukan untuk admin tenant: melihat dan mengelola semua tenant (perpanjang trial, ganti plan, suspend atau pulihkan workspace), mencari user, mengulang job yang gagal, dan membaca audit log platform. Fitur tingkat tenant (anggota, billing, dan pengaturan satu tenant) tetap di `apps/web`.
+
+Ini satu-satunya kode yang sengaja melintasi batas tenant (`withSystem`), jadi diisolasi di setiap lapisan:
+
+| Lapisan    | Isolasi                                                                                               |
+| ---------- | ----------------------------------------------------------------------------------------------------- |
+| App        | `apps/admin`: SPA Vite dan bundle sendiri (`pnpm --filter @starter/admin dev`, port 5174)             |
+| Kontrak    | `@starter/contracts/admin`, tidak pernah di-re-export dari `@starter/contracts`                       |
+| API        | `apps/api/src/admin`, di-mount di `/api/admin/rpc`; bukan di bawah `src/modules`                      |
+| Host       | Di production API hanya menjawab di `ADMIN_HOST`; satu image menyajikan kedua SPA, dipilih lewat Host |
+| Library UI | source shadcn/ui di dalam `apps/admin` (lihat di bawah)                                               |
+| Audit      | `platform_audit_events`, terpisah dari `audit_events` milik tenant                                    |
+
+**Akses (semua lapisan wajib).**
+
+1. **Identitas:** `AuthPort` dan `resolveUser` yang sama dengan API utama.
+2. **Allowlist:** `PLATFORM_ADMINS` (email dipisah koma). Platform admin bukan membership tenant dan tidak ada role baru di `memberships`. Email harus **terverifikasi** di provider auth: `resolveUser` membuat user dari email yang belum terverifikasi bila belum ada pemiliknya, jadi tanpa pengecekan itu siapa pun bisa mendaftar dengan alamat yang ada di allowlist. Non-admin mendapat `NOT_FOUND` agar API tidak membocorkan keberadaannya; daftar kosong atau tidak diisi menonaktifkan API admin sepenuhnya.
+3. **Host:** di production `/api/admin/rpc` hanya menjawab bila host request sama dengan `ADMIN_HOST`; host lain mendapat 404.
+4. **Lapisan jaringan (opsional):** bila `CF_ACCESS_TEAM_DOMAIN` dan `CF_ACCESS_AUD` diisi, JWT `Cf-Access-Jwt-Assertion` diverifikasi terhadap JWKS tim (issuer dan audience dicek, kunci tidak di-hardcode).
+
+**Audit.** Setiap mutasi wajib memberi `reason` (minimal 5 karakter) dan menulis tepat satu baris `platform_audit_events` dalam transaksi yang sama dengan perubahannya. Aturannya sendiri adalah fungsi di `core/billing.ts` (`extendTrial`, `changePlan`, `setSuspended`); service admin hanya memanggilnya. Untuk `jobs.retry`, baris audit ditulis lebih dulu di dalam transaksi yang menjalankan retry, karena antrean punya koneksi sendiri: retry tidak pernah terjadi tanpa barisnya, dan retry yang ditolak tidak meninggalkan baris. Tabelnya memakai row level security yang hanya dilewati `withSystem`, sehingga transaksi tenant tidak melihat baris apa pun, bahkan karena kekeliruan.
+
+**Dua sistem UI, tidak pernah dicampur.** UI produk (`apps/web`, `apps/site`) memakai `@starter/ui`: komponen milik sendiri dengan token semantik dan tema yang bisa diganti, karena tiap produk punya tampilannya sendiri. Admin adalah alat internal berbahasa Inggris yang tidak butuh tema tetapi butuh tabel data, dialog, dan command palette yang matang, jadi memakai shadcn/ui, yang komponennya disalin ke `apps/admin/src/components/ui` dan dimiliki seperti source lain. `apps/admin` tidak pernah mengimpor `@starter/ui`, dan komponen shadcn tidak pernah dipindah ke `packages/ui` apa adanya. `pnpm check:boundaries` menegakkannya, bersama aturan: hanya `apps/admin`, `apps/api/src/admin`, dan `packages/contracts` yang boleh mengimpor `@starter/contracts/admin`; tidak ada yang di luar `apps/admin` boleh mengimpor darinya.
+
+**Di luar cakupan:** impersonasi ("login sebagai user"), menghapus tenant, mengedit data bisnis tenant, dashboard pendapatan dan metrik, aksi massal, broadcast email.
+
+## 16. Ditunda atau tidak dilakukan
 
 | Item                                  | Status          | Pemicu                                               |
 | ------------------------------------- | --------------- | ---------------------------------------------------- |

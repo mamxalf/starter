@@ -14,27 +14,29 @@ This starter is a personal foundation for building multi-tenant SaaS products in
 
 ## 2. Decisions at a glance
 
-| Area          | Decision                                           | Main reason                                      |
-| ------------- | -------------------------------------------------- | ------------------------------------------------ |
-| Monorepo      | pnpm workspaces + Turborepo                        | Light, cached, `turbo gen` for scaffolding       |
-| Runtime       | Node 22+                                           | LTS, stable                                      |
-| Landing       | Static Astro + i18n, on a CDN                      | Best SEO, zero JS by default, free hosting       |
-| Dashboard     | Vite SPA + TanStack Router/Query/Form              | Type-safe, search params as state, no server     |
-| UI            | Tailwind v4 + owned components + tailwind-variants | Components we own, themes via tokens             |
-| API           | Fastify + oRPC                                     | Type-safe contract, framework-agnostic           |
-| Validation    | Zod                                                | One schema for API and forms                     |
-| Database      | PostgreSQL + Kysely                                | DB is the source of truth, types are generated   |
-| Tenancy       | `tenant_id` + RLS, path-based URLs                 | One migration, two layers of isolation           |
-| Auth          | Clerk behind `AuthPort`                            | Identity from a vendor, memberships owned by us  |
-| Authorization | Role per membership + policy functions             | Simple, easy to test                             |
-| i18n          | Paraglide JS in `packages/i18n`                    | Type-safe, used by Astro, Vite and emails        |
-| Billing       | Model 1: plans, entitlements, invoices via jobs    | Fits one-off payment methods common in Indonesia |
-| Uploads       | Presigned URLs to S3-compatible storage            | Files never pass through the server              |
-| Email         | React Email + `Mailer` port, sent via jobs         | Automatic retries, multilingual templates        |
-| Jobs          | pg-boss                                            | No Redis                                         |
-| Observability | pino + Sentry SDK + audit log                      | Minimal but sufficient                           |
-| Quality       | Biome, Vitest, Lefthook                            | Fast, one tool per job                           |
-| Deploy        | One image + worker + Postgres via Kamal            | Zero-downtime on one VPS                         |
+| Area           | Decision                                                                      | Main reason                                                              |
+| -------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Monorepo       | pnpm workspaces + Turborepo                                                   | Light, cached, `turbo gen` for scaffolding                               |
+| Runtime        | Node 22+                                                                      | LTS, stable                                                              |
+| Landing        | Static Astro + i18n, on a CDN                                                 | Best SEO, zero JS by default, free hosting                               |
+| Dashboard      | Vite SPA + TanStack Router/Query/Form                                         | Type-safe, search params as state, no server                             |
+| UI             | Tailwind v4 + owned components + tailwind-variants                            | Components we own, themes via tokens                                     |
+| API            | Fastify + oRPC                                                                | Type-safe contract, framework-agnostic                                   |
+| Validation     | Zod                                                                           | One schema for API and forms                                             |
+| Database       | PostgreSQL + Kysely                                                           | DB is the source of truth, types are generated                           |
+| Tenancy        | `tenant_id` + RLS, path-based URLs                                            | One migration, two layers of isolation                                   |
+| Auth           | Clerk behind `AuthPort`                                                       | Identity from a vendor, memberships owned by us                          |
+| Authorization  | Role per membership + policy functions                                        | Simple, easy to test                                                     |
+| i18n           | Paraglide JS in `packages/i18n`                                               | Type-safe, used by Astro, Vite and emails                                |
+| Billing        | Model 1: plans, entitlements, invoices via jobs                               | Fits one-off payment methods common in Indonesia                         |
+| Uploads        | Presigned URLs to S3-compatible storage                                       | Files never pass through the server                                      |
+| Email          | React Email + `Mailer` port, sent via jobs                                    | Automatic retries, multilingual templates                                |
+| Jobs           | pg-boss                                                                       | No Redis                                                                 |
+| Observability  | pino + Sentry SDK + audit log                                                 | Minimal but sufficient                                                   |
+| Quality        | Biome, Vitest, Lefthook                                                       | Fast, one tool per job                                                   |
+| Deploy         | One image + worker + Postgres via Kamal                                       | Zero-downtime on one VPS                                                 |
+| Platform admin | Separate app, contract, API mount, host and audit; allowlist + verified email | The only code that crosses tenants is isolated                           |
+| Admin UI       | shadcn/ui in `apps/admin`; `@starter/ui` stays for the product                | Mature data tables and dialogs for an internal tool; themes for products |
 
 ## 3. Monorepo layout
 
@@ -42,6 +44,7 @@ This starter is a personal foundation for building multi-tenant SaaS products in
 apps/
   site/        Astro: landing, pricing (static, i18n) → CDN
   web/         Vite SPA: dashboard → served by api (same origin)
+  admin/       Vite SPA + shadcn/ui: platform back-office → served by api on ADMIN_HOST
   api/         Fastify + oRPC. Entries: server.ts, worker.ts, migrate.ts (one image)
 packages/
   contracts/   oRPC contract + Zod schemas. The only frontend ↔ backend boundary
@@ -58,6 +61,7 @@ Dependency rules (checked by `pnpm check:boundaries` on pre-push and in CI):
 
 - `packages/*` must not import `apps/*` (Turborepo tag `lib` ↛ `app`).
 - `apps/web` and `apps/site` must not depend on `db` or `platform` (tag `frontend` ↛ `server-only`).
+- `apps/admin` must not import `@starter/ui`; only `apps/admin`, `apps/api/src/admin` and `packages/contracts` may import `@starter/contracts/admin`; nothing outside `apps/admin` may import from it (`scripts/check-module-boundaries.mjs`).
 - An API module must not import another module's `*.repo.ts`; it goes through that module's service (`scripts/check-module-boundaries.mjs`).
 - Business code never imports vendor SDKs directly; only ports.
 
@@ -260,7 +264,35 @@ kamal app boot
 Keep `app_old` until the restored data is confirmed, then drop it. A backup you have never restored is a guess: restore the latest dump into a scratch database once a month and run the step 3 checks.
 
 
-## 15. Deferred or not done
+## 15. Platform admin
+
+A back-office for the **platform owner**, not for tenant admins: see and manage every tenant (extend a trial, change a plan, suspend or restore a workspace), look up users, retry failed jobs, and read a platform audit log. Tenant-level features (members, billing and settings for one tenant) stay in `apps/web`.
+
+It is the only code that deliberately crosses tenant boundaries (`withSystem`), so it is isolated at every layer:
+
+| Layer      | Isolation                                                                                              |
+| ---------- | ------------------------------------------------------------------------------------------------------ |
+| App        | `apps/admin`: its own Vite SPA and bundle (`pnpm --filter @starter/admin dev`, port 5174)              |
+| Contract   | `@starter/contracts/admin`, never re-exported from `@starter/contracts`                                |
+| API        | `apps/api/src/admin`, mounted at `/api/admin/rpc`; not under `src/modules`                             |
+| Host       | In production the API answers it only on `ADMIN_HOST`; the same image serves both SPAs, chosen by Host |
+| UI library | shadcn/ui source inside `apps/admin` (see below)                                                       |
+| Audit      | `platform_audit_events`, separate from the tenant `audit_events`                                       |
+
+**Access (every layer is required).**
+
+1. **Identity:** the same `AuthPort` and `resolveUser` as the main API.
+2. **Allowlist:** `PLATFORM_ADMINS` (comma-separated emails). Platform admins are not tenant memberships and no role is added to `memberships`. The email must be **verified** at the auth provider: `resolveUser` creates a user from an unverified email when nobody owns it yet, so without that check anyone could sign up as an allowlisted address. Non-admins get `NOT_FOUND` so the API does not reveal itself; an empty or unset list disables the admin API entirely.
+3. **Host:** in production `/api/admin/rpc` answers only when the request host equals `ADMIN_HOST`; any other host gets 404.
+4. **Optional network layer:** when `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` are set, the `Cf-Access-Jwt-Assertion` JWT is verified against the team's JWKS (issuer and audience checked, keys never hard-coded).
+
+**Audit.** Every mutation requires a `reason` (at least 5 characters) and writes exactly one `platform_audit_events` row in the same transaction as the change. The rule itself is a function in `core/billing.ts` (`extendTrial`, `changePlan`, `setSuspended`); the admin service only calls it. For `jobs.retry` the audit row is written first inside the transaction that performs the retry, because the queue has its own connection: a retry never happens without its row, and a refused retry leaves none. The table has row level security that only `withSystem` passes, so a tenant transaction sees no rows even by mistake.
+
+**Two UI systems, never mixed.** The product UI (`apps/web`, `apps/site`) uses `@starter/ui`: owned components with semantic tokens and swappable themes, because each product wants its own look. The admin is an internal, English-only tool that needs no theming but does need mature data tables, dialogs and a command palette, so it uses shadcn/ui, whose components are copied into `apps/admin/src/components/ui` and owned like any other source. `apps/admin` never imports `@starter/ui`, and shadcn components never move into `packages/ui` unchanged. `pnpm check:boundaries` enforces this, together with: only `apps/admin`, `apps/api/src/admin` and `packages/contracts` may import `@starter/contracts/admin`; nothing outside `apps/admin` may import from it.
+
+**Out of scope:** impersonation ("log in as user"), deleting tenants, editing a tenant's business data, revenue and metrics dashboards, bulk actions, email broadcasts.
+
+## 16. Deferred or not done
 
 | Item                                         | Status   | Trigger                                         |
 | -------------------------------------------- | -------- | ----------------------------------------------- |
