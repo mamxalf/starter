@@ -29,7 +29,7 @@ function check(file) {
 
 walk(root)
 if (violations.length > 0) {
-  console.error('Module boundary violations:\n' + violations.map((v) => `  - ${v}`).join('\n'))
+  console.error(`Module boundary violations:\n${violations.map((v) => `  - ${v}`).join('\n')}`)
   process.exit(1)
 }
 console.log('Module boundaries OK')

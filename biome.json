@@ -11,6 +11,7 @@
       "!**/dist",
       "!**/.astro",
       "!**/routeTree.gen.ts",
+      "!pnpm-lock.yaml",
       "!packages/db/src/types.ts",
       "!packages/i18n/src/paraglide",
       "!packages/i18n/project.inlang"
