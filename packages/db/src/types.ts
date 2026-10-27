@@ -134,6 +134,18 @@ export interface Plans {
   updated_at: Generated<Timestamp>;
 }
 
+export interface PlatformAuditEvents {
+  action: string;
+  actor_id: string | null;
+  created_at: Generated<Timestamp>;
+  id: string;
+  metadata: Generated<Json>;
+  reason: string;
+  target_id: string | null;
+  target_type: string | null;
+  tenant_id: string | null;
+}
+
 export interface Projects {
   created_at: Generated<Timestamp>;
   description: string | null;
@@ -183,6 +195,7 @@ export interface DB {
   payment_events: PaymentEvents;
   plan_entitlements: PlanEntitlements;
   plans: Plans;
+  platform_audit_events: PlatformAuditEvents;
   projects: Projects;
   subscriptions: Subscriptions;
   tenants: Tenants;
