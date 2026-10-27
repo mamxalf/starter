@@ -24,7 +24,9 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # One source of truth (.nvmrc, same as mise.toml). `22` let the runner pick an older cached
+          # 22.x, and astro requires >=22.23.4.
+          node-version-file: .nvmrc
           cache: pnpm
       - name: Create non-superuser app role (RLS must apply in tests)
         run: psql postgres://postgres:postgres@localhost:5432/postgres -f docker/postgres/init.sql
