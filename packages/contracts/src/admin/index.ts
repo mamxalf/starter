@@ -3,6 +3,7 @@ import { oc } from '@orpc/contract'
 import { z } from 'zod'
 import { auditContract } from './audit'
 import { jobsContract } from './jobs'
+import { plansContract } from './plans'
 import { tenantsContract } from './tenants'
 import { usersContract } from './users'
 
@@ -17,6 +18,7 @@ export const adminContract = {
   users: usersContract,
   audit: auditContract,
   jobs: jobsContract,
+  plans: plansContract,
 }
 
 export type AdminContract = typeof adminContract
@@ -25,6 +27,7 @@ export type AdminOutputs = InferContractRouterOutputs<AdminContract>
 
 export * from './audit'
 export * from './jobs'
+export * from './plans'
 export * from './shared'
 export * from './tenants'
 export * from './users'

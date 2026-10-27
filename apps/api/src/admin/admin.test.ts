@@ -82,6 +82,7 @@ describe('access', () => {
       () => alice.users.get({ userId: aliceId }),
       () => alice.audit.list({}),
       () => alice.jobs.listFailed({}),
+      () => alice.plans.list(),
       () => alice.jobs.retry({ queue: 'email.send', jobId: 'any', reason: REASON }),
     ]
     const before = await auditCount()
@@ -322,6 +323,19 @@ describe('tenants.changePlan', () => {
     )
 
     expect(await auditCount()).toBe(rowsBefore)
+  })
+})
+
+describe('plans.list', () => {
+  it('lists the active plans, cheapest first', async () => {
+    const plans = await call(() => admin().plans.list())
+    expect(plans.map((p) => p.code)).toEqual(['free', 'pro'])
+    expect(plans[1]).toMatchObject({
+      name: 'Pro',
+      price: 149_000,
+      currency: 'IDR',
+      interval: 'month',
+    })
   })
 })
 
