@@ -9,8 +9,26 @@ ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=true
 RUN corepack enable
 WORKDIR /repo
 
+# Dependency layers come first so source edits do not reinstall: `pnpm fetch` depends only on the
+# lockfile, and `install --offline` on the workspace manifests. Add a COPY line when you add a package.
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm fetch
+COPY package.json ./
+COPY apps/api/package.json apps/api/
+COPY apps/site/package.json apps/site/
+COPY apps/web/package.json apps/web/
+COPY packages/auth/package.json packages/auth/
+COPY packages/config/package.json packages/config/
+COPY packages/contracts/package.json packages/contracts/
+COPY packages/db/package.json packages/db/
+COPY packages/i18n/package.json packages/i18n/
+COPY packages/platform/package.json packages/platform/
+COPY packages/ui/package.json packages/ui/
+# The root `prepare` script installs git hooks and the image has no git, so lifecycle scripts are
+# skipped; esbuild is the one dependency that needs its install script (it bundles the API).
+RUN pnpm install --frozen-lockfile --offline --ignore-scripts && pnpm rebuild esbuild
+
 COPY . .
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 # Vite inlines VITE_* at build time.
 ARG VITE_AUTH_PROVIDER=clerk
