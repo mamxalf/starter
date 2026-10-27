@@ -1,3 +1,4 @@
+import { ORPCError } from '@orpc/server'
 import { type Database, type DB, newId, type Transaction, withSystem } from '@starter/db'
 import { logger } from '@starter/platform/logger'
 
@@ -168,4 +169,112 @@ export async function markInvoicePaid(db: Database, invoiceId: string, now = new
       .where('id', '=', invoice.subscription_id)
       .execute()
   })
+}
+
+// ── Platform admin operations ───────────────────────────────────────────
+// Called by apps/api/src/admin inside its own transaction (together with the platform audit row).
+// Each returns what changed so the caller can record before/after.
+
+const EXTENDABLE: SubscriptionStatus[] = ['trialing', 'past_due', 'suspended']
+
+async function lockSubscription(trx: Transaction<DB>, tenantId: string) {
+  const sub = await trx
+    .selectFrom('subscriptions')
+    .select(['id', 'plan_id', 'status', 'current_period_end'])
+    .where('tenant_id', '=', tenantId)
+    .forUpdate()
+    .executeTakeFirst()
+  if (!sub) throw new ORPCError('NOT_FOUND', { message: 'Subscription not found' })
+  return sub
+}
+
+/**
+ * Gives a tenant more time: status becomes `trialing` and the period end moves `days` past the later
+ * of now and the current end. Open invoices that would otherwise be overdue move with it, otherwise
+ * the next billing cycle would immediately push the subscription back to past_due.
+ */
+export async function extendTrial(
+  trx: Transaction<DB>,
+  tenantId: string,
+  days: number,
+  now = new Date(),
+) {
+  const sub = await lockSubscription(trx, tenantId)
+  if (!EXTENDABLE.includes(sub.status as SubscriptionStatus)) {
+    throw new ORPCError('CONFLICT', { message: `Cannot extend a ${sub.status} subscription` })
+  }
+  const base = sub.current_period_end > now ? sub.current_period_end : now
+  const currentPeriodEnd = new Date(base.getTime() + days * DAY)
+
+  await trx
+    .updateTable('subscriptions')
+    .set({ status: 'trialing', current_period_end: currentPeriodEnd, updated_at: now })
+    .where('id', '=', sub.id)
+    .execute()
+  await trx
+    .updateTable('invoices')
+    .set({ due_at: currentPeriodEnd, updated_at: now })
+    .where('subscription_id', '=', sub.id)
+    .where('status', '=', 'open')
+    .where('due_at', '<', currentPeriodEnd)
+    .execute()
+
+  return {
+    before: { status: sub.status, currentPeriodEnd: sub.current_period_end },
+    after: { status: 'trialing' as const, currentPeriodEnd },
+  }
+}
+
+/** Switches plan with no proration: entitlements follow at once, the price applies from the next invoice. */
+export async function changePlan(trx: Transaction<DB>, tenantId: string, planCode: string) {
+  const plan = await trx
+    .selectFrom('plans')
+    .select(['id', 'code', 'is_active'])
+    .where('code', '=', planCode)
+    .executeTakeFirst()
+  if (!plan?.is_active) throw new ORPCError('BAD_REQUEST', { message: 'Unknown or inactive plan' })
+
+  const sub = await lockSubscription(trx, tenantId)
+  if (sub.plan_id === plan.id) {
+    throw new ORPCError('CONFLICT', { message: 'The tenant is already on this plan' })
+  }
+  const previous = await trx
+    .selectFrom('plans')
+    .select('code')
+    .where('id', '=', sub.plan_id)
+    .executeTakeFirstOrThrow()
+
+  await trx
+    .updateTable('subscriptions')
+    .set({ plan_id: plan.id, updated_at: new Date() })
+    .where('id', '=', sub.id)
+    .execute()
+
+  return { before: { planCode: previous.code }, after: { planCode: plan.code } }
+}
+
+/**
+ * Suspend = read-only workspace (see isWritable); unsuspend = `active`. Unsuspending does not forgive
+ * open invoices: if one is overdue the next billing cycle suspends again, so use extendTrial instead.
+ */
+export async function setSuspended(trx: Transaction<DB>, tenantId: string, suspended: boolean) {
+  const sub = await lockSubscription(trx, tenantId)
+  if (sub.status === 'canceled') {
+    throw new ORPCError('CONFLICT', { message: 'The subscription is canceled' })
+  }
+  if (suspended && sub.status === 'suspended') {
+    throw new ORPCError('CONFLICT', { message: 'The tenant is already suspended' })
+  }
+  if (!suspended && sub.status !== 'suspended') {
+    throw new ORPCError('CONFLICT', { message: 'The tenant is not suspended' })
+  }
+
+  const status = suspended ? ('suspended' as const) : ('active' as const)
+  await trx
+    .updateTable('subscriptions')
+    .set({ status, updated_at: new Date() })
+    .where('id', '=', sub.id)
+    .execute()
+
+  return { before: { status: sub.status }, after: { status } }
 }
