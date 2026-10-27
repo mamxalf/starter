@@ -1,0 +1,11 @@
+{
+  "extends": ["//"],
+  "tags": ["app", "frontend"],
+  "tasks": {
+    "build": {
+      "outputs": ["dist/**"],
+      "env": ["VITE_*"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.env"]
+    }
+  }
+}
