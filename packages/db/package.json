@@ -1,0 +1,32 @@
+{
+  "name": "@starter/db",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./migrations": "./src/migrations/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "db:new": "tsx scripts/new-migration.ts",
+    "db:migrate": "tsx scripts/migrate.ts latest && pnpm db:codegen",
+    "db:rollback": "tsx scripts/migrate.ts down && pnpm db:codegen",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:reset": "tsx scripts/migrate.ts reset && pnpm db:codegen && pnpm db:seed",
+    "db:codegen": "kysely-codegen --dialect postgres --env-file ../../.env --out-file src/types.ts --include-pattern 'public.*' --exclude-pattern 'public.kysely_*'"
+  },
+  "dependencies": {
+    "kysely": "0.29.7",
+    "pg": "8.23.1",
+    "uuidv7": "1.2.1"
+  },
+  "devDependencies": {
+    "@starter/config": "workspace:*",
+    "@types/node": "26.6.5",
+    "@types/pg": "8.23.1",
+    "kysely-codegen": "0.20.0",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "extends": ["//"],
+  "tags": ["lib"],
+  "tasks": {
+    "build": {
+      "inputs": ["messages/**", "project.inlang/settings.json"],
+      "outputs": ["src/paraglide/**"]
+    },
+    "typecheck": { "dependsOn": ["build"] }
+  }
+}

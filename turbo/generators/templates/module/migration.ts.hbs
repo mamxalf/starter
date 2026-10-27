@@ -1,0 +1,20 @@
+import { enableTenantRls, type MigrationDb, withBaseColumns } from './_helpers'
+
+export async function up(db: MigrationDb): Promise<void> {
+  await withBaseColumns(db.schema.createTable('{{snakeCase name}}'))
+    .addColumn('tenant_id', 'uuid', (c) =>
+      c.notNull().references('tenants.id').onDelete('cascade'),
+    )
+    .addColumn('name', 'text', (c) => c.notNull())
+    .execute()
+  await db.schema
+    .createIndex('{{snakeCase name}}_tenant_created')
+    .on('{{snakeCase name}}')
+    .columns(['tenant_id', 'created_at'])
+    .execute()
+  await enableTenantRls(db, '{{snakeCase name}}')
+}
+
+export async function down(db: MigrationDb): Promise<void> {
+  await db.schema.dropTable('{{snakeCase name}}').execute()
+}

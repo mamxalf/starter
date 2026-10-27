@@ -1,0 +1,12 @@
+node_modules
+dist
+.turbo
+.astro
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+coverage
+.kamal/secrets
+packages/i18n/src/paraglide

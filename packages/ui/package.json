@@ -1,0 +1,32 @@
+{
+  "name": "@starter/ui",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles/ui.css"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "clsx": "2.1.1",
+    "tailwind-merge": "3.7.0",
+    "tailwind-variants": "3.3.1"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "tailwindcss": "^4"
+  },
+  "devDependencies": {
+    "@starter/config": "workspace:*",
+    "@types/node": "26.6.5",
+    "@types/react": "19.3.0",
+    "react": "19.3.1",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  }
+}

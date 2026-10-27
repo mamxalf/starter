@@ -1,0 +1,57 @@
+import { ORPCError } from '@orpc/server'
+import type { Inputs, Outputs } from '@starter/contracts'
+import { recordAudit } from '../../core/audit'
+import type { TenantScope } from '../../orpc'
+import * as repo from './{{kebabCase name}}.repo'
+
+type {{singular}} = Outputs['{{camelCase name}}']['get']
+
+const to{{singular}} = (row: repo.{{singular}}Row): {{singular}} => ({
+  id: row.id,
+  name: row.name,
+  createdAt: row.created_at,
+})
+
+const notFound = () => new ORPCError('NOT_FOUND', { message: '{{singular}} not found' })
+
+export async function list(scope: TenantScope, input: Inputs['{{camelCase name}}']['list']) {
+  const page = { page: input.page ?? 1, pageSize: input.pageSize ?? 20 }
+  const { items, total } = await scope.tx((trx) => repo.list(trx, scope.tenant.id, page))
+  return { items: items.map(to{{singular}}), total }
+}
+
+export async function get(scope: TenantScope, id: string) {
+  const row = await scope.tx((trx) => repo.find(trx, scope.tenant.id, id))
+  if (!row) throw notFound()
+  return to{{singular}}(row)
+}
+
+export async function create(scope: TenantScope, input: Inputs['{{camelCase name}}']['create']) {
+  return scope.tx(async (trx) => {
+    const row = await repo.insert(trx, scope.tenant.id, { name: input.name })
+    await recordAudit(trx, scope.tenant.id, {
+      action: '{{kebabCase singular}}.created',
+      targetType: '{{kebabCase singular}}',
+      targetId: row.id,
+    })
+    return to{{singular}}(row)
+  })
+}
+
+export async function update(scope: TenantScope, input: Inputs['{{camelCase name}}']['update']) {
+  const row = await scope.tx((trx) => repo.update(trx, scope.tenant.id, input.id, { name: input.name }))
+  if (!row) throw notFound()
+  return to{{singular}}(row)
+}
+
+export async function remove(scope: TenantScope, id: string) {
+  await scope.tx(async (trx) => {
+    if (!(await repo.remove(trx, scope.tenant.id, id))) throw notFound()
+    await recordAudit(trx, scope.tenant.id, {
+      action: '{{kebabCase singular}}.deleted',
+      targetType: '{{kebabCase singular}}',
+      targetId: id,
+    })
+  })
+  return { ok: true as const }
+}

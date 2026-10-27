@@ -1,0 +1,54 @@
+import { type DB, newId, type Selectable, type Transaction, type {{pascalCase name}} } from '@starter/db'
+
+/** Data access only. Always filter by tenant_id (RLS re-checks it underneath). */
+export type {{singular}}Row = Selectable<{{pascalCase name}}>
+
+export async function list(trx: Transaction<DB>, tenantId: string, opts: { page: number; pageSize: number }) {
+  const query = trx.selectFrom('{{snakeCase name}}').where('tenant_id', '=', tenantId)
+  const [items, count] = await Promise.all([
+    query
+      .selectAll()
+      .orderBy('created_at', 'desc')
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize)
+      .execute(),
+    query.select((eb) => eb.fn.countAll<number>().as('n')).executeTakeFirstOrThrow(),
+  ])
+  return { items, total: Number(count.n) }
+}
+
+export function find(trx: Transaction<DB>, tenantId: string, id: string) {
+  return trx
+    .selectFrom('{{snakeCase name}}')
+    .selectAll()
+    .where('tenant_id', '=', tenantId)
+    .where('id', '=', id)
+    .executeTakeFirst()
+}
+
+export function insert(trx: Transaction<DB>, tenantId: string, values: { name: string }) {
+  return trx
+    .insertInto('{{snakeCase name}}')
+    .values({ id: newId(), tenant_id: tenantId, ...values })
+    .returningAll()
+    .executeTakeFirstOrThrow()
+}
+
+export function update(trx: Transaction<DB>, tenantId: string, id: string, values: { name: string }) {
+  return trx
+    .updateTable('{{snakeCase name}}')
+    .set({ ...values, updated_at: new Date() })
+    .where('tenant_id', '=', tenantId)
+    .where('id', '=', id)
+    .returningAll()
+    .executeTakeFirst()
+}
+
+export async function remove(trx: Transaction<DB>, tenantId: string, id: string) {
+  const result = await trx
+    .deleteFrom('{{snakeCase name}}')
+    .where('tenant_id', '=', tenantId)
+    .where('id', '=', id)
+    .executeTakeFirst()
+  return Number(result.numDeletedRows) > 0
+}

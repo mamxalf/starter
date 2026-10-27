@@ -1,0 +1,36 @@
+---
+import { type Locale, locales } from '@starter/i18n'
+import Header from '../../components/Header.astro'
+import Base from '../../layouts/Base.astro'
+
+export function getStaticPaths() {
+  return locales.map((locale) => ({ params: { locale } }))
+}
+
+const locale = Astro.params.locale as Locale
+// Keep in sync with plans seeded in packages/db/src/seed.ts.
+const plans = [
+  { name: 'Free', price: 0, features: ['3 members'] },
+  { name: 'Pro', price: 149_000, features: ['20 members', 'Custom domain'] },
+]
+const idr = new Intl.NumberFormat(locale === 'id' ? 'id-ID' : 'en-US', {
+  style: 'currency',
+  currency: 'IDR',
+  maximumFractionDigits: 0,
+})
+---
+
+<Base locale={locale} title="Pricing" description="Plans and pricing">
+  <Header locale={locale} />
+  <main class="mx-auto grid max-w-5xl gap-6 px-4 py-16 sm:grid-cols-2">
+    {plans.map((plan) => (
+      <section class="rounded-ui border-ui bg-surface p-6 shadow-ui">
+        <h2 class="text-xl font-semibold">{plan.name}</h2>
+        <p class="mt-2 text-3xl font-bold">{idr.format(plan.price)}</p>
+        <ul class="mt-4 list-disc pl-5 text-sm text-muted-foreground">
+          {plan.features.map((f) => <li>{f}</li>)}
+        </ul>
+      </section>
+    ))}
+  </main>
+</Base>

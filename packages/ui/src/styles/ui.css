@@ -1,0 +1,59 @@
+/*
+ * Design tokens. Components ONLY use these semantic utilities (bg-surface, rounded-ui,
+ * shadow-ui, border-ui, blur-ui, font-display...). A theme is one CSS file that sets the
+ * variables below: themes differ in SHAPE (radius, border, shadow, blur, font), not just color.
+ *
+ * Apps: `@import "@starter/ui/styles.css";` then set `data-theme` on <html>.
+ */
+@import "tailwindcss";
+@import "./themes/minimal.css";
+@import "./themes/brutal.css";
+@import "./themes/glass.css";
+@import "./themes/voxel.css";
+
+/* Scan this package's components for class names. */
+@source "../";
+
+@custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-fg);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-fg);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-fg);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-fg);
+
+  --radius-ui: var(--radius);
+  --shadow-ui: var(--shadow);
+  --shadow-ui-press: var(--shadow-press);
+  --blur-ui: var(--blur);
+
+  --font-sans: var(--font-body);
+  --font-display: var(--font-heading);
+}
+
+@utility border-ui {
+  border-style: solid;
+  border-width: var(--border-w);
+  border-color: var(--border);
+}
+
+@layer base {
+  html {
+    background: var(--page-bg, var(--bg));
+    color: var(--fg);
+    font-family: var(--font-body);
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading);
+  }
+}

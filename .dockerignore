@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/.turbo
+**/.astro
+.git
+.env
+.env.*
+!.env.example
+.kamal/secrets
+coverage

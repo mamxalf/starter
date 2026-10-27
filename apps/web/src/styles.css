@@ -1,0 +1,4 @@
+@import "@starter/ui/styles.css";
+
+/* Scan this app's own files for Tailwind classes. */
+@source "./";

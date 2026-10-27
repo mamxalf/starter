@@ -1,0 +1,10 @@
+import { tenantRead, tenantWrite } from '../../orpc'
+import * as service from './{{kebabCase name}}.service'
+
+export const {{camelCase name}}Router = {
+  list: tenantRead.{{camelCase name}}.list.handler(({ context, input }) => service.list(context, input)),
+  get: tenantRead.{{camelCase name}}.get.handler(({ context, input }) => service.get(context, input.id)),
+  create: tenantWrite.{{camelCase name}}.create.handler(({ context, input }) => service.create(context, input)),
+  update: tenantWrite.{{camelCase name}}.update.handler(({ context, input }) => service.update(context, input)),
+  remove: tenantWrite.{{camelCase name}}.remove.handler(({ context, input }) => service.remove(context, input.id)),
+}

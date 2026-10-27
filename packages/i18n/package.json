@@ -1,0 +1,21 @@
+{
+  "name": "@starter/i18n",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./messages": "./src/paraglide/messages.js",
+    "./runtime": "./src/paraglide/runtime.js"
+  },
+  "scripts": {
+    "build": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy globalVariable baseLocale --emit-ts-declarations",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@inlang/paraglide-js": "2.29.2",
+    "@inlang/plugin-message-format": "4.5.5",
+    "@starter/config": "workspace:*",
+    "@types/node": "26.6.5",
+    "typescript": "7.0.2"
+  }
+}

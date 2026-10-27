@@ -1,0 +1,32 @@
+{
+  "name": "@starter/platform",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./context": "./src/context.ts",
+    "./logger": "./src/logger.ts",
+    "./mail": "./src/mail/index.ts",
+    "./storage": "./src/storage/index.ts",
+    "./payment": "./src/payment/port.ts",
+    "./jobs": "./src/jobs/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1157.0",
+    "@aws-sdk/s3-request-presigner": "3.1157.0",
+    "nodemailer": "10.2.1",
+    "pg-boss": "12.38.0",
+    "pino": "10.4.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@starter/config": "workspace:*",
+    "@types/node": "26.6.5",
+    "@types/nodemailer": "8.0.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

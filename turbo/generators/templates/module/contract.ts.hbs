@@ -1,0 +1,21 @@
+import { oc } from '@orpc/contract'
+import { z } from 'zod'
+import { Pagination, paginated } from '../shared'
+
+export const {{singular}} = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  createdAt: z.date(),
+})
+
+export const {{singular}}Input = z.object({
+  name: z.string().trim().min(1).max(120),
+})
+
+export const {{camelCase name}}Contract = {
+  list: oc.input(Pagination).output(paginated({{singular}})),
+  get: oc.input(z.object({ id: z.uuid() })).output({{singular}}),
+  create: oc.input({{singular}}Input).output({{singular}}),
+  update: oc.input({{singular}}Input.extend({ id: z.uuid() })).output({{singular}}),
+  remove: oc.input(z.object({ id: z.uuid() })).output(z.object({ ok: z.literal(true) })),
+}

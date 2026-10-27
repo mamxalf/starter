@@ -1,0 +1,7 @@
+{
+  "extends": ["//"],
+  "tags": ["app", "frontend"],
+  "tasks": {
+    "build": { "outputs": ["dist/**"], "env": ["SITE_URL", "PUBLIC_*", "DEPLOY_ENV"] }
+  }
+}

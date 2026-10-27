@@ -1,0 +1,38 @@
+{
+  "name": "@starter/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsr generate && tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@orpc/client": "1.16.1",
+    "@orpc/contract": "1.16.1",
+    "@orpc/tanstack-query": "1.16.1",
+    "@starter/auth": "workspace:*",
+    "@starter/contracts": "workspace:*",
+    "@starter/i18n": "workspace:*",
+    "@starter/ui": "workspace:*",
+    "@tanstack/react-form": "1.33.5",
+    "@tanstack/react-query": "5.105.0",
+    "@tanstack/react-router": "1.170.46",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@starter/config": "workspace:*",
+    "@tailwindcss/vite": "4.3.3",
+    "@tanstack/router-cli": "1.167.46",
+    "@tanstack/router-plugin": "1.168.48",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2",
+    "vite": "8.3.5"
+  }
+}

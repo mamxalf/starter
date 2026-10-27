@@ -1,0 +1,16 @@
+# Git hooks. Keep pre-commit under ~3s; heavier checks run on pre-push and in CI.
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      glob: "*.{js,ts,tsx,jsx,json,css,astro}"
+      run: pnpm biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      stage_fixed: true
+
+pre-push:
+  parallel: false
+  commands:
+    boundaries:
+      run: pnpm check:boundaries
+    typecheck-and-test:
+      run: pnpm turbo run typecheck test --affected

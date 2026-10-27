@@ -1,0 +1,27 @@
+/* Glassmorphism: translucent surfaces, large radius, backdrop blur over a gradient page. */
+[data-theme="glass"] {
+  --page-bg:
+    radial-gradient(at 20% 10%, oklch(0.7 0.18 300) 0, transparent 50%),
+    radial-gradient(at 80% 30%, oklch(0.75 0.15 200) 0, transparent 50%),
+    radial-gradient(at 50% 90%, oklch(0.7 0.17 350) 0, transparent 50%), oklch(0.25 0.05 280);
+  --bg: oklch(0.25 0.05 280);
+  --fg: oklch(0.98 0 0);
+  --surface: oklch(1 0 0 / 0.12);
+  --surface-fg: oklch(0.98 0 0);
+  --muted: oklch(1 0 0 / 0.08);
+  --muted-fg: oklch(0.88 0.02 280);
+  --primary: oklch(1 0 0 / 0.9);
+  --primary-fg: oklch(0.25 0.05 280);
+  --border: oklch(1 0 0 / 0.25);
+  --ring: oklch(1 0 0 / 0.5);
+  --danger: oklch(0.7 0.19 20);
+  --danger-fg: oklch(1 0 0);
+
+  --radius: 1.25rem;
+  --border-w: 1px;
+  --shadow: 0 8px 32px oklch(0 0 0 / 0.2);
+  --shadow-press: 0 2px 8px oklch(0 0 0 / 0.2);
+  --blur: 16px;
+  --font-body: ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-body);
+}

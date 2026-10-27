@@ -1,0 +1,28 @@
+---
+import { type Locale, locales, m } from '@starter/i18n'
+import Header from '../../components/Header.astro'
+import Base from '../../layouts/Base.astro'
+
+export function getStaticPaths() {
+  return locales.map((locale) => ({ params: { locale } }))
+}
+
+const locale = Astro.params.locale as Locale
+const t = { locale }
+// The dashboard lives on its own origin (app.example.com); landing is static on a CDN.
+const appUrl = import.meta.env.PUBLIC_APP_URL ?? 'http://localhost:5173'
+---
+
+<Base locale={locale} title={m.app_name({}, t)} description={m.site_hero_subtitle({}, t)}>
+  <Header locale={locale} />
+  <main class="mx-auto flex max-w-5xl flex-col items-start gap-6 px-4 py-24">
+    <h1 class="max-w-2xl text-5xl font-bold leading-tight">{m.site_hero_title({}, t)}</h1>
+    <p class="max-w-xl text-lg text-muted-foreground">{m.site_hero_subtitle({}, t)}</p>
+    <a
+      href={`${appUrl}/sign-in`}
+      class="rounded-ui border-ui bg-primary px-6 py-3 font-medium text-primary-foreground shadow-ui"
+    >
+      {m.site_cta({}, t)}
+    </a>
+  </main>
+</Base>

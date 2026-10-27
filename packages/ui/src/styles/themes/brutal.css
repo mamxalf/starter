@@ -1,0 +1,23 @@
+/* Neo-brutalism: no radius, thick borders, hard offset shadows, loud accent. */
+[data-theme="brutal"] {
+  --bg: oklch(0.97 0.03 95);
+  --fg: oklch(0 0 0);
+  --surface: oklch(1 0 0);
+  --surface-fg: oklch(0 0 0);
+  --muted: oklch(0.93 0.05 95);
+  --muted-fg: oklch(0.3 0 0);
+  --primary: oklch(0.86 0.18 92);
+  --primary-fg: oklch(0 0 0);
+  --border: oklch(0 0 0);
+  --ring: oklch(0 0 0);
+  --danger: oklch(0.65 0.24 25);
+  --danger-fg: oklch(0 0 0);
+
+  --radius: 0;
+  --border-w: 3px;
+  --shadow: 5px 5px 0 oklch(0 0 0);
+  --shadow-press: 1px 1px 0 oklch(0 0 0);
+  --blur: 0px;
+  --font-body: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+}

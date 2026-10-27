@@ -1,0 +1,24 @@
+---
+import { type Locale, locales, m } from '@starter/i18n'
+import { stripLocale } from '../lib/seo'
+
+interface Props {
+  locale: Locale
+}
+const { locale } = Astro.props
+const path = stripLocale(Astro.url.pathname)
+---
+
+<header class="mx-auto flex max-w-5xl items-center gap-6 p-4">
+  <a href={`/${locale}/`} class="font-display text-lg font-bold">{m.app_name({}, { locale })}</a>
+  <nav class="flex gap-4 text-sm">
+    <a href={`/${locale}/pricing/`}>Pricing</a>
+  </nav>
+  <div class="ml-auto flex gap-2 text-sm uppercase">
+    {locales.map((l) => (
+      <a href={`/${l}${path}`} aria-current={l === locale ? 'page' : undefined} class:list={[l === locale && 'font-bold underline']}>
+        {l}
+      </a>
+    ))}
+  </div>
+</header>

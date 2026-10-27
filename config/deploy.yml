@@ -1,0 +1,69 @@
+# Kamal 2: zero-downtime deploys of one image to one VPS (1–2 GB RAM is enough).
+#   kamal setup    # first time: installs Docker, boots Postgres + app
+#   kamal deploy   # every release
+# Landing page (apps/site) is static: deploy its dist/ to a CDN, not here.
+service: starter
+image: your-registry-user/starter
+
+servers:
+  web:
+    hosts: [203.0.113.10]
+    env:
+      clear:
+        RUN_MIGRATIONS: "true"
+  worker:
+    hosts: [203.0.113.10]
+    cmd: node --enable-source-maps dist/worker.js
+
+proxy:
+  ssl: true
+  host: app.example.com
+  app_port: 3000
+  healthcheck:
+    path: /readyz
+    interval: 3
+
+registry:
+  username: your-registry-user
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+builder:
+  arch: amd64
+  args:
+    VITE_AUTH_PROVIDER: clerk
+    VITE_CLERK_PUBLISHABLE_KEY: pk_live_replace_me
+
+env:
+  clear:
+    NODE_ENV: production
+    APP_URL: https://app.example.com
+    AUTH_PROVIDER: clerk
+    MAIL_DRIVER: resend
+    MAIL_FROM: "App <noreply@mail.example.com>"
+    STORAGE_DRIVER: s3
+    S3_ENDPOINT: https://<account-id>.r2.cloudflarestorage.com
+    S3_REGION: auto
+    S3_BUCKET: app
+  secret:
+    - DATABASE_URL
+    - CLERK_SECRET_KEY
+    - CLERK_PUBLISHABLE_KEY
+    - RESEND_API_KEY
+    - S3_ACCESS_KEY_ID
+    - S3_SECRET_ACCESS_KEY
+    - SENTRY_DSN
+
+accessories:
+  db:
+    image: postgres:16-alpine
+    host: 203.0.113.10
+    port: "127.0.0.1:5432:5432"
+    env:
+      secret:
+        - POSTGRES_PASSWORD
+        - APP_DB_PASSWORD
+    files:
+      - docker/postgres/init-prod.sh:/docker-entrypoint-initdb.d/init.sh
+    directories:
+      - pgdata:/var/lib/postgresql/data

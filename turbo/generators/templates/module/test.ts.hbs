@@ -1,0 +1,50 @@
+import { withTenant } from '@starter/db'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { createTestDeps, type TestKit } from '../../test/helpers'
+
+let kit: TestKit
+
+beforeAll(async () => {
+  kit = await createTestDeps()
+  kit.signUp('alice', 'alice@example.com')
+  kit.signUp('bob', 'bob@example.com')
+  await kit.inRequest(() =>
+    kit.clientAs('alice').tenants.create({ name: 'Acme', slug: 'acme', defaultLocale: 'id' }),
+  )
+  await kit.inRequest(() =>
+    kit.clientAs('bob').tenants.create({ name: 'Globex', slug: 'globex', defaultLocale: 'id' }),
+  )
+})
+
+afterAll(() => kit.db.destroy())
+
+describe('{{name}}', () => {
+  it('creates, reads, updates and deletes', async () => {
+    const api = kit.clientAs('alice', 'acme')
+    const created = await kit.inRequest(() => api.{{camelCase name}}.create({ name: 'First' }))
+    expect((await kit.inRequest(() => api.{{camelCase name}}.list({ page: 1, pageSize: 20 }))).total).toBe(1)
+    const updated = await kit.inRequest(() => api.{{camelCase name}}.update({ id: created.id, name: 'Renamed' }))
+    expect(updated.name).toBe('Renamed')
+    await kit.inRequest(() => api.{{camelCase name}}.remove({ id: created.id }))
+    await expect(kit.inRequest(() => api.{{camelCase name}}.get({ id: created.id }))).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    })
+  })
+})
+
+describe('{{name}}: tenant isolation', () => {
+  it('a non-member cannot reach another tenant', async () => {
+    await expect(
+      kit.inRequest(() => kit.clientAs('bob', 'acme').{{camelCase name}}.list({ page: 1, pageSize: 20 })),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  })
+
+  it("never returns another tenant's rows, even from an unfiltered query", async () => {
+    await kit.inRequest(() => kit.clientAs('bob', 'globex').{{camelCase name}}.create({ name: 'Globex only' }))
+    const acme = await kit.db.selectFrom('tenants').select('id').where('slug', '=', 'acme').executeTakeFirstOrThrow()
+    const rows = await withTenant(kit.db, acme.id, (trx) =>
+      trx.selectFrom('{{snakeCase name}}').select('tenant_id').execute(),
+    )
+    expect(rows.every((r) => r.tenant_id === acme.id)).toBe(true)
+  })
+})
