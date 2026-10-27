@@ -1,4 +1,5 @@
 import { createPgBossQueue } from '@starter/platform/jobs'
+import { logger } from '@starter/platform/logger'
 import { buildApp } from './app'
 import { createDeps } from './deps'
 import { loadEnv } from './env'
@@ -23,6 +24,13 @@ if (env.NODE_ENV === 'development') await queue.work(jobHandlers(deps))
 if (env.SENTRY_DSN) {
   const Sentry = await import('@sentry/node')
   Sentry.setupFastifyErrorHandler(app)
+}
+
+// Dev convenience so a fresh `docker compose up` needs no bucket setup step. Never blocks boot.
+if (env.NODE_ENV === 'development') {
+  await deps.storage.ensureBucket().catch((err) => {
+    logger.warn({ err }, 'could not ensure the dev storage bucket (is the storage service up?)')
+  })
 }
 
 onShutdown(async () => {

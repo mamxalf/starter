@@ -27,14 +27,6 @@ services:
     volumes:
       - storage:/data
 
-  storage-init:
-    # Creates the dev bucket once storage is up.
-    image: minio/mc:latest
-    depends_on: [storage]
-    entrypoint: >
-      /bin/sh -c "until mc alias set local http://storage:9000 minio minio12345; do sleep 1; done;
-      mc mb --ignore-existing local/app"
-
 volumes:
   pgdata:
   storage:

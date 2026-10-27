@@ -1,4 +1,5 @@
 import {
+  CreateBucketCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -26,7 +27,11 @@ export interface Storage {
   presignDownload(key: string, expiresIn?: number): Promise<string>
   head(key: string): Promise<{ size: number; contentType?: string } | null>
   delete(key: string): Promise<void>
+  /** Creates the bucket if it is missing. Dev convenience: production buckets are provisioned. */
+  ensureBucket(): Promise<void>
 }
+
+const BUCKET_EXISTS = new Set(['BucketAlreadyOwnedByYou', 'BucketAlreadyExists'])
 
 export type S3Config = {
   endpoint?: string
@@ -72,6 +77,15 @@ export function s3Storage(config: S3Config): Storage {
     async delete(key) {
       await client.send(new DeleteObjectCommand({ Bucket, Key: key }))
     },
+    async ensureBucket() {
+      try {
+        await client.send(new CreateBucketCommand({ Bucket }))
+      } catch (error) {
+        // Matched by name: S3-compatible servers (MinIO, R2, Garage) all report these two codes.
+        if (error instanceof Error && BUCKET_EXISTS.has(error.name)) return
+        throw error
+      }
+    },
   }
 }
 
@@ -100,5 +114,6 @@ export function memoryStorage(): MemoryStorage {
     async delete(key) {
       objects.delete(key)
     },
+    async ensureBucket() {},
   }
 }

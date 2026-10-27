@@ -22,7 +22,7 @@ Butuh Node 22+, pnpm 12, dan Docker.
 ```bash
 pnpm install
 cp .env.example .env
-docker compose up -d          # Postgres, Mailpit, storage S3 lokal
+docker compose up -d          # Postgres, Mailpit, storage S3 lokal (MinIO)
 pnpm db:migrate && pnpm db:seed
 pnpm dev
 ```
@@ -30,7 +30,7 @@ pnpm dev
 - Dashboard: http://localhost:5173 (login dengan email apa pun di mode dev)
 - Landing: http://localhost:4321
 - Email yang terkirim: http://localhost:8025
-- Konsol storage dev: http://localhost:9001 (minio / minio12345); bucket `app` dibuat otomatis
+- Konsol storage dev: http://localhost:9001 (minio / minio12345); bucket `app` dibuat otomatis oleh API saat `pnpm dev` (`ensureBucket()`, hanya di development)
 
 Beralih ke Clerk: isi `CLERK_*` dan `VITE_CLERK_PUBLISHABLE_KEY` di `.env`, lalu ubah `AUTH_PROVIDER=clerk` dan `VITE_AUTH_PROVIDER=clerk`.
 
