@@ -1,9 +1,9 @@
 import { createPgBossQueue } from '@starter/platform/jobs'
-import { logger } from '@starter/platform/logger'
 import { buildApp } from './app'
 import { createDeps } from './deps'
 import { loadEnv } from './env'
 import { jobHandlers } from './jobs/handlers'
+import { onShutdown } from './shutdown'
 
 const env = loadEnv()
 
@@ -25,14 +25,10 @@ if (env.SENTRY_DSN) {
   Sentry.setupFastifyErrorHandler(app)
 }
 
-const shutdown = async (signal: string) => {
-  logger.info({ signal }, 'shutting down')
+onShutdown(async () => {
   await app.close()
   await queue.stop()
   await deps.db.destroy()
-  process.exit(0)
-}
-process.on('SIGTERM', () => void shutdown('SIGTERM'))
-process.on('SIGINT', () => void shutdown('SIGINT'))
+})
 
 await app.listen({ port: env.PORT, host: '0.0.0.0' })
