@@ -12,6 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppAuditRouteImport } from './routes/_app/audit'
+import { Route as AppJobsRouteImport } from './routes/_app/jobs'
+import { Route as AppTenantsIndexRouteImport } from './routes/_app/tenants/index'
+import { Route as AppTenantsTenantIdRouteImport } from './routes/_app/tenants/$tenantId'
+import { Route as AppUsersIndexRouteImport } from './routes/_app/users/index'
+import { Route as AppUsersUserIdRouteImport } from './routes/_app/users/$userId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -27,27 +33,101 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAuditRoute = AppAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppJobsRoute = AppJobsRouteImport.update({
+  id: '/jobs',
+  path: '/jobs',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTenantsIndexRoute = AppTenantsIndexRouteImport.update({
+  id: '/tenants/',
+  path: '/tenants/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTenantsTenantIdRoute = AppTenantsTenantIdRouteImport.update({
+  id: '/tenants/$tenantId',
+  path: '/tenants/$tenantId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppUsersIndexRoute = AppUsersIndexRouteImport.update({
+  id: '/users/',
+  path: '/users/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppUsersUserIdRoute = AppUsersUserIdRouteImport.update({
+  id: '/users/$userId',
+  path: '/users/$userId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/sign-in': typeof SignInRoute
+  '/audit': typeof AppAuditRoute
+  '/jobs': typeof AppJobsRoute
+  '/tenants/$tenantId': typeof AppTenantsTenantIdRoute
+  '/users/$userId': typeof AppUsersUserIdRoute
+  '/tenants/': typeof AppTenantsIndexRoute
+  '/users/': typeof AppUsersIndexRoute
 }
 export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
+  '/audit': typeof AppAuditRoute
+  '/jobs': typeof AppJobsRoute
   '/': typeof AppIndexRoute
+  '/tenants/$tenantId': typeof AppTenantsTenantIdRoute
+  '/users/$userId': typeof AppUsersUserIdRoute
+  '/tenants': typeof AppTenantsIndexRoute
+  '/users': typeof AppUsersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/sign-in': typeof SignInRoute
+  '/_app/audit': typeof AppAuditRoute
+  '/_app/jobs': typeof AppJobsRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/tenants/$tenantId': typeof AppTenantsTenantIdRoute
+  '/_app/users/$userId': typeof AppUsersUserIdRoute
+  '/_app/tenants/': typeof AppTenantsIndexRoute
+  '/_app/users/': typeof AppUsersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sign-in'
+  fullPaths:
+    | '/'
+    | '/sign-in'
+    | '/audit'
+    | '/jobs'
+    | '/tenants/$tenantId'
+    | '/users/$userId'
+    | '/tenants/'
+    | '/users/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/sign-in' | '/'
-  id: '__root__' | '/_app' | '/sign-in' | '/_app/'
+  to:
+    | '/sign-in'
+    | '/audit'
+    | '/jobs'
+    | '/'
+    | '/tenants/$tenantId'
+    | '/users/$userId'
+    | '/tenants'
+    | '/users'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/sign-in'
+    | '/_app/audit'
+    | '/_app/jobs'
+    | '/_app/'
+    | '/_app/tenants/$tenantId'
+    | '/_app/users/$userId'
+    | '/_app/tenants/'
+    | '/_app/users/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -78,15 +158,69 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/audit': {
+      id: '/_app/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AppAuditRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/jobs': {
+      id: '/_app/jobs'
+      path: '/jobs'
+      fullPath: '/jobs'
+      preLoaderRoute: typeof AppJobsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/tenants/': {
+      id: '/_app/tenants/'
+      path: '/tenants'
+      fullPath: '/tenants/'
+      preLoaderRoute: typeof AppTenantsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/tenants/$tenantId': {
+      id: '/_app/tenants/$tenantId'
+      path: '/tenants/$tenantId'
+      fullPath: '/tenants/$tenantId'
+      preLoaderRoute: typeof AppTenantsTenantIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/users/': {
+      id: '/_app/users/'
+      path: '/users'
+      fullPath: '/users/'
+      preLoaderRoute: typeof AppUsersIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/users/$userId': {
+      id: '/_app/users/$userId'
+      path: '/users/$userId'
+      fullPath: '/users/$userId'
+      preLoaderRoute: typeof AppUsersUserIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppAuditRoute: typeof AppAuditRoute
+  AppJobsRoute: typeof AppJobsRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppTenantsTenantIdRoute: typeof AppTenantsTenantIdRoute
+  AppUsersUserIdRoute: typeof AppUsersUserIdRoute
+  AppTenantsIndexRoute: typeof AppTenantsIndexRoute
+  AppUsersIndexRoute: typeof AppUsersIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAuditRoute: AppAuditRoute,
+  AppJobsRoute: AppJobsRoute,
   AppIndexRoute: AppIndexRoute,
+  AppTenantsTenantIdRoute: AppTenantsTenantIdRoute,
+  AppUsersUserIdRoute: AppUsersUserIdRoute,
+  AppTenantsIndexRoute: AppTenantsIndexRoute,
+  AppUsersIndexRoute: AppUsersIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
