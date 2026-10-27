@@ -81,6 +81,8 @@ describe('access', () => {
       () => alice.users.search({}),
       () => alice.users.get({ userId: aliceId }),
       () => alice.audit.list({}),
+      () => alice.jobs.listFailed({}),
+      () => alice.jobs.retry({ queue: 'email.send', jobId: 'any', reason: REASON }),
     ]
     const before = await auditCount()
     for (const attempt of attempts) {

@@ -1,6 +1,6 @@
 import { type AuthPort, clerkAuth, fakeAuth } from '@starter/auth'
 import { createDb, type Database } from '@starter/db'
-import type { JobQueue } from '@starter/platform/jobs'
+import type { JobAdmin, JobQueue } from '@starter/platform/jobs'
 import { createMailer, type Mailer } from '@starter/platform/mail'
 import { memoryStorage, type Storage, s3Storage } from '@starter/platform/storage'
 import { createCfAccessVerifier } from './admin/cf-access'
@@ -16,6 +16,8 @@ export type Deps = {
   mailer: Mailer
   storage: Storage
   queue: JobQueue
+  /** Failed-job inspection for the platform back-office (same pg-boss instance as `queue`). */
+  jobAdmin: JobAdmin
   config: { appUrl: string; mailFrom: string }
   /** Platform admin API (apps/api/src/admin). Disabled when `platformAdmins` is empty. */
   admin: {
@@ -34,7 +36,7 @@ const adminOrigin = (env: Env) =>
     ? `https://${env.ADMIN_HOST}`
     : 'http://localhost:5174'
 
-export function createDeps(env: Env, queue: JobQueue): Deps {
+export function createDeps(env: Env, queue: JobQueue & JobAdmin): Deps {
   return {
     db: createDb(env.DATABASE_URL),
     auth:
@@ -63,6 +65,7 @@ export function createDeps(env: Env, queue: JobQueue): Deps {
             secretAccessKey: env.S3_SECRET_ACCESS_KEY,
           }),
     queue,
+    jobAdmin: queue,
     config: { appUrl: env.APP_URL, mailFrom: env.MAIL_FROM },
     admin: {
       platformAdmins: env.PLATFORM_ADMINS,

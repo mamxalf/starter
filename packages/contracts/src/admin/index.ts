@@ -2,6 +2,7 @@ import type { InferContractRouterInputs, InferContractRouterOutputs } from '@orp
 import { oc } from '@orpc/contract'
 import { z } from 'zod'
 import { auditContract } from './audit'
+import { jobsContract } from './jobs'
 import { tenantsContract } from './tenants'
 import { usersContract } from './users'
 
@@ -15,6 +16,7 @@ export const adminContract = {
   tenants: tenantsContract,
   users: usersContract,
   audit: auditContract,
+  jobs: jobsContract,
 }
 
 export type AdminContract = typeof adminContract
@@ -22,6 +24,7 @@ export type AdminInputs = InferContractRouterInputs<AdminContract>
 export type AdminOutputs = InferContractRouterOutputs<AdminContract>
 
 export * from './audit'
+export * from './jobs'
 export * from './shared'
 export * from './tenants'
 export * from './users'

@@ -28,6 +28,7 @@ export async function createTestDeps(options: { admin?: Partial<Deps['admin']> }
     mailer,
     storage,
     queue,
+    jobAdmin: queue,
     config: { appUrl: 'http://app.test', mailFrom: 'App <noreply@mail.example.com>' },
     // Platform admin API is off unless a test lists admins.
     admin: { platformAdmins: [] as string[], ...options.admin },

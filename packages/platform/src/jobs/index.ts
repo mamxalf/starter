@@ -38,6 +38,34 @@ export interface JobQueue {
   enqueue<S extends z.ZodType>(job: JobDefinition<S>, data: z.input<S>): Promise<void>
 }
 
+export type FailedJob = {
+  id: string
+  queue: string
+  payload: unknown
+  error: string | null
+  failedAt: Date | null
+  retryCount: number
+}
+
+export type RetryResult = 'retried' | 'not_found' | 'not_failed'
+
+/** Port for the platform back-office: look at failed jobs and put one back in the queue. */
+export interface JobAdmin {
+  /** Failed jobs of every queue, newest first. Adapters may cap how far back they look. */
+  listFailed(): Promise<FailedJob[]>
+  retry(queue: string, jobId: string): Promise<RetryResult>
+}
+
+/** pg-boss has no state filter on findJobs(), so scanning is bounded per queue. */
+const SCAN_LIMIT_PER_QUEUE = 1000
+
+const errorMessage = (output: unknown): string | null => {
+  if (output && typeof output === 'object' && 'message' in output) {
+    return String((output as { message: unknown }).message)
+  }
+  return null
+}
+
 /**
  * Runs a handler inside a fresh context. If the payload carries `tenantId` / `locale`,
  * logger, audit and tenant helpers pick them up automatically.
@@ -88,7 +116,35 @@ export function createPgBossQueue(connectionString: string) {
     async stop() {
       if (started) await boss.stop({ graceful: true })
     },
-  } satisfies JobQueue & Record<string, unknown>
+    // JobAdmin: pg-boss's public API only (getQueues, findJobs, retry), no direct table access.
+    async listFailed() {
+      await ensureStarted()
+      const failed: FailedJob[] = []
+      for (const queue of await boss.getQueues()) {
+        const jobs = await boss.findJobs(queue.name, { limit: SCAN_LIMIT_PER_QUEUE })
+        for (const job of jobs) {
+          if (job.state !== 'failed') continue
+          failed.push({
+            id: job.id,
+            queue: job.name,
+            payload: job.data,
+            error: errorMessage(job.output),
+            failedAt: job.completedOn,
+            retryCount: job.retryCount,
+          })
+        }
+      }
+      return failed.sort((a, b) => (b.failedAt?.getTime() ?? 0) - (a.failedAt?.getTime() ?? 0))
+    },
+    async retry(queue, jobId) {
+      await ensureStarted()
+      const [job] = await boss.findJobs(queue, { id: jobId })
+      if (!job) return 'not_found'
+      if (job.state !== 'failed') return 'not_failed'
+      await boss.retry(queue, jobId)
+      return 'retried'
+    },
+  } satisfies JobQueue & JobAdmin & Record<string, unknown>
 }
 
 /**
@@ -98,8 +154,22 @@ export function createPgBossQueue(connectionString: string) {
 export function inlineQueue(registrations: JobRegistration[] = []) {
   const byName = new Map(registrations.map((r) => [r.job.name, r]))
   const ran: { name: string; data: unknown }[] = []
+  const failed = new Map<string, FailedJob>()
   return {
     ran,
+    /** Test helper: pretend a job exhausted its retries. Returns its id. */
+    seedFailed(input: { queue: string; payload: unknown; error?: string; failedAt?: Date }) {
+      const id = randomUUID()
+      failed.set(id, {
+        id,
+        queue: input.queue,
+        payload: input.payload,
+        error: input.error ?? 'boom',
+        failedAt: input.failedAt ?? new Date(),
+        retryCount: 5,
+      })
+      return id
+    },
     register(registration: JobRegistration) {
       byName.set(registration.job.name, registration)
     },
@@ -109,5 +179,30 @@ export function inlineQueue(registrations: JobRegistration[] = []) {
       const registration = byName.get(job.name)
       if (registration) await run(registration, parsed, getContext()?.requestId ?? randomUUID())
     },
-  } satisfies JobQueue & Record<string, unknown>
+    async listFailed() {
+      return [...failed.values()].sort(
+        (a, b) => (b.failedAt?.getTime() ?? 0) - (a.failedAt?.getTime() ?? 0),
+      )
+    },
+    /** Like pg-boss it re-queues; inline, that means running the handler again right away. */
+    async retry(queue, jobId) {
+      const job = failed.get(jobId)
+      if (!job || job.queue !== queue) return 'not_found'
+      failed.delete(jobId)
+      const registration = byName.get(queue)
+      if (registration) {
+        try {
+          await run(registration, job.payload, jobId)
+        } catch (error) {
+          failed.set(jobId, {
+            ...job,
+            error: error instanceof Error ? error.message : String(error),
+            failedAt: new Date(),
+            retryCount: job.retryCount + 1,
+          })
+        }
+      }
+      return 'retried'
+    },
+  } satisfies JobQueue & JobAdmin & Record<string, unknown>
 }
