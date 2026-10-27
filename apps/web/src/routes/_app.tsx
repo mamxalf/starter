@@ -3,6 +3,7 @@ import { m, setLocale } from '@starter/i18n'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, Outlet, redirect } from '@tanstack/react-router'
 import { LocaleSwitcher } from '../components/locale-switcher'
+import { TenantSwitcher } from '../components/tenant-switcher'
 import { ThemeSwitcher } from '../components/theme-switcher'
 import { orpc } from '../lib/api'
 
@@ -30,19 +31,7 @@ function AppLayout() {
         <Link to="/" className="font-display text-lg font-bold">
           {m.app_name()}
         </Link>
-        <nav className="flex flex-wrap gap-2 text-sm">
-          {me.memberships.map((t) => (
-            <Link
-              key={t.tenantId}
-              to="/$tenant/projects"
-              params={{ tenant: t.slug }}
-              className="rounded-ui px-2 py-1 hover:bg-muted"
-              activeProps={{ className: 'bg-muted font-semibold' }}
-            >
-              {t.name}
-            </Link>
-          ))}
-        </nav>
+        <TenantSwitcher tenants={me.memberships} />
         <div className="ml-auto flex items-center gap-3">
           <LocaleSwitcher />
           <ThemeSwitcher />

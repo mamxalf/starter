@@ -27,6 +27,19 @@ export const tenantsRouter = {
     service.listInvitations(context),
   ),
 
+  revokeInvitation: tenantWrite.tenants.revokeInvitation.handler(({ context, input }) =>
+    service.revokeInvitation(context, input.id),
+  ),
+
+  resendInvitation: tenantWrite.tenants.resendInvitation
+    .use(({ context, next }) => {
+      limitInvite(context.user.id)
+      return next()
+    })
+    .handler(({ context, input }) =>
+      service.resendInvitation(context.deps, context, context.user, input.id),
+    ),
+
   acceptInvitation: authed.tenants.acceptInvitation
     .use(({ context, next }) => {
       limitAccept(context.user.id)

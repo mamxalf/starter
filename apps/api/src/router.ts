@@ -1,5 +1,6 @@
 import { filesRouter } from './modules/files/files.router'
 import { meRouter } from './modules/me/me.router'
+import { membersRouter } from './modules/members/members.router'
 import { projectsRouter } from './modules/projects/projects.router'
 import { tenantsRouter } from './modules/tenants/tenants.router'
 import { base } from './orpc'
@@ -9,6 +10,7 @@ import { base } from './orpc'
 export const router = base.router({
   me: meRouter,
   tenants: tenantsRouter,
+  members: membersRouter,
   projects: projectsRouter,
   files: filesRouter,
   // [gen:router]

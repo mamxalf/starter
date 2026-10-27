@@ -27,5 +27,8 @@ export const tenantsContract = {
     .input(z.object({ email: z.email(), role: z.enum(['admin', 'member']) }))
     .output(Invitation),
   listInvitations: oc.output(z.array(Invitation)),
+  revokeInvitation: oc.input(z.object({ id: z.uuid() })).output(z.object({ ok: z.literal(true) })),
+  /** Issues a fresh token and expiry (the old link stops working) and emails it again. */
+  resendInvitation: oc.input(z.object({ id: z.uuid() })).output(Invitation),
   acceptInvitation: oc.input(z.object({ token: z.string().min(20) })).output(Tenant),
 }

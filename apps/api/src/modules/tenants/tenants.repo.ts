@@ -47,6 +47,16 @@ export async function countSeats(trx: Transaction<DB>, tenantId: string): Promis
   return Number(members.n) + Number(invites.n)
 }
 
+/** Confirmed members only (no pending invitations). */
+export async function countMembers(trx: Transaction<DB>, tenantId: string): Promise<number> {
+  const row = await trx
+    .selectFrom('memberships')
+    .select((eb) => eb.fn.countAll<number>().as('n'))
+    .where('tenant_id', '=', tenantId)
+    .executeTakeFirstOrThrow()
+  return Number(row.n)
+}
+
 export async function insertInvitation(
   trx: Transaction<DB>,
   values: {
@@ -100,4 +110,36 @@ export async function markInvitationAccepted(trx: Transaction<DB>, id: string): 
     .set({ accepted_at: new Date(), updated_at: new Date() })
     .where('id', '=', id)
     .execute()
+}
+
+export async function deleteOpenInvitation(
+  trx: Transaction<DB>,
+  tenantId: string,
+  id: string,
+): Promise<boolean> {
+  const result = await trx
+    .deleteFrom('invitations')
+    .where('tenant_id', '=', tenantId)
+    .where('id', '=', id)
+    .where('accepted_at', 'is', null)
+    .executeTakeFirst()
+  return Number(result.numDeletedRows) > 0
+}
+
+/** New token + expiry for an open invitation; the previous link stops working. */
+export async function refreshOpenInvitation(
+  trx: Transaction<DB>,
+  tenantId: string,
+  id: string,
+  values: { token: string; expiresAt: Date },
+) {
+  return trx
+    .updateTable('invitations')
+    .set({ token: values.token, expires_at: values.expiresAt, updated_at: new Date() })
+    .where('tenant_id', '=', tenantId)
+    .where('id', '=', id)
+    .where('accepted_at', 'is', null)
+    .where('expires_at', '>', new Date())
+    .returning(['id', 'email', 'role', 'expires_at'])
+    .executeTakeFirst()
 }

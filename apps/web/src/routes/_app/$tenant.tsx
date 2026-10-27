@@ -51,6 +51,14 @@ function TenantLayout() {
         >
           {m.nav_projects()}
         </Link>
+        <Link
+          to="/$tenant/members"
+          params={{ tenant }}
+          className="rounded-ui px-2 py-1"
+          activeProps={{ className: 'bg-muted font-semibold' }}
+        >
+          {m.nav_members()}
+        </Link>
       </nav>
       <Outlet />
     </div>

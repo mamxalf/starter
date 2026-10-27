@@ -15,6 +15,7 @@ import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppTenantRouteImport } from './routes/_app/$tenant'
 import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
 import { Route as AppTenantIndexRouteImport } from './routes/_app/$tenant/index'
+import { Route as AppTenantMembersRouteImport } from './routes/_app/$tenant/members'
 import { Route as AppTenantProjectsRouteImport } from './routes/_app/$tenant/projects'
 import { Route as AppInviteTokenRouteImport } from './routes/_app/invite.$token'
 
@@ -47,6 +48,11 @@ const AppTenantIndexRoute = AppTenantIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppTenantRoute,
 } as any)
+const AppTenantMembersRoute = AppTenantMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => AppTenantRoute,
+} as any)
 const AppTenantProjectsRoute = AppTenantProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/$tenant': typeof AppTenantRouteWithChildren
   '/onboarding': typeof AppOnboardingRoute
+  '/$tenant/members': typeof AppTenantMembersRoute
   '/$tenant/projects': typeof AppTenantProjectsRoute
   '/invite/$token': typeof AppInviteTokenRoute
   '/$tenant/': typeof AppTenantIndexRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/onboarding': typeof AppOnboardingRoute
   '/': typeof AppIndexRoute
+  '/$tenant/members': typeof AppTenantMembersRoute
   '/$tenant/projects': typeof AppTenantProjectsRoute
   '/invite/$token': typeof AppInviteTokenRoute
   '/$tenant': typeof AppTenantIndexRoute
@@ -82,6 +90,7 @@ export interface FileRoutesById {
   '/_app/$tenant': typeof AppTenantRouteWithChildren
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/$tenant/members': typeof AppTenantMembersRoute
   '/_app/$tenant/projects': typeof AppTenantProjectsRoute
   '/_app/invite/$token': typeof AppInviteTokenRoute
   '/_app/$tenant/': typeof AppTenantIndexRoute
@@ -93,6 +102,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/$tenant'
     | '/onboarding'
+    | '/$tenant/members'
     | '/$tenant/projects'
     | '/invite/$token'
     | '/$tenant/'
@@ -101,6 +111,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/onboarding'
     | '/'
+    | '/$tenant/members'
     | '/$tenant/projects'
     | '/invite/$token'
     | '/$tenant'
@@ -111,6 +122,7 @@ export interface FileRouteTypes {
     | '/_app/$tenant'
     | '/_app/onboarding'
     | '/_app/'
+    | '/_app/$tenant/members'
     | '/_app/$tenant/projects'
     | '/_app/invite/$token'
     | '/_app/$tenant/'
@@ -165,6 +177,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTenantIndexRouteImport
       parentRoute: typeof AppTenantRoute
     }
+    '/_app/$tenant/members': {
+      id: '/_app/$tenant/members'
+      path: '/members'
+      fullPath: '/$tenant/members'
+      preLoaderRoute: typeof AppTenantMembersRouteImport
+      parentRoute: typeof AppTenantRoute
+    }
     '/_app/$tenant/projects': {
       id: '/_app/$tenant/projects'
       path: '/projects'
@@ -183,11 +202,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppTenantRouteChildren {
+  AppTenantMembersRoute: typeof AppTenantMembersRoute
   AppTenantProjectsRoute: typeof AppTenantProjectsRoute
   AppTenantIndexRoute: typeof AppTenantIndexRoute
 }
 
 const AppTenantRouteChildren: AppTenantRouteChildren = {
+  AppTenantMembersRoute: AppTenantMembersRoute,
   AppTenantProjectsRoute: AppTenantProjectsRoute,
   AppTenantIndexRoute: AppTenantIndexRoute,
 }

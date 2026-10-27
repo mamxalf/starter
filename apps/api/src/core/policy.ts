@@ -11,6 +11,13 @@ export const atLeast = (role: Role, minimum: Role): boolean => RANK[role] >= RAN
 
 export const policy = {
   inviteMembers: (role: Role) => atLeast(role, 'admin'),
+  manageInvitations: (role: Role) => atLeast(role, 'admin'),
+  /** The owner manages everyone else; an admin manages plain members only. */
+  manageMember: (actor: Role, target: Role) =>
+    target !== 'owner' && (actor === 'owner' || (actor === 'admin' && target === 'member')),
+  transferOwnership: (role: Role) => role === 'owner',
+  /** The owner cannot leave: ownership must be transferred first. */
+  leaveTenant: (role: Role) => role !== 'owner',
   createProject: (role: Role) => atLeast(role, 'member'),
   updateProject: (role: Role) => atLeast(role, 'member'),
   deleteProject: (role: Role) => atLeast(role, 'admin'),

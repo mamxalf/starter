@@ -14,6 +14,9 @@ import * as repo from './tenants.repo'
 
 const INVITE_TTL_DAYS = 7
 
+const invitationNotFound = () =>
+  new ORPCError('NOT_FOUND', { message: 'Invitation not found or expired' })
+
 export function toTenant(t: Selectable<Tenants>): Outputs['tenants']['create'] {
   return { id: t.id, slug: t.slug, name: t.name, defaultLocale: t.default_locale as Locale }
 }
@@ -38,6 +41,30 @@ export async function createTenant(deps: Deps, user: User, input: Inputs['tenant
   }
 }
 
+function sendInvitationEmail(
+  deps: Deps,
+  scope: TenantScope,
+  user: User,
+  email: string,
+  token: string,
+) {
+  return deps.queue.enqueue(sendEmailJob, {
+    tenantId: scope.tenant.id,
+    locale: scope.locale,
+    to: email,
+    fromName: `${scope.tenant.name} via ${deps.config.mailFrom.split('<')[0]?.trim() || 'App'}`,
+    replyTo: user.email,
+    template: 'invitation',
+    props: {
+      tenantName: scope.tenant.name,
+      inviterName: user.name ?? user.email,
+      acceptUrl: `${deps.config.appUrl}/invite/${token}`,
+    },
+  })
+}
+
+const inviteExpiry = () => new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000)
+
 export async function invite(
   deps: Deps,
   scope: TenantScope,
@@ -59,7 +86,7 @@ export async function invite(
       role: input.role,
       token,
       invitedBy: user.id,
-      expiresAt: new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000),
+      expiresAt: inviteExpiry(),
     })
     await recordAudit(trx, scope.tenant.id, {
       action: 'member.invited',
@@ -70,19 +97,7 @@ export async function invite(
     return created
   })
 
-  await deps.queue.enqueue(sendEmailJob, {
-    tenantId: scope.tenant.id,
-    locale: scope.locale,
-    to: email,
-    fromName: `${scope.tenant.name} via ${deps.config.mailFrom.split('<')[0]?.trim() || 'App'}`,
-    replyTo: user.email,
-    template: 'invitation',
-    props: {
-      tenantName: scope.tenant.name,
-      inviterName: user.name ?? user.email,
-      acceptUrl: `${deps.config.appUrl}/invite/${token}`,
-    },
-  })
+  await sendInvitationEmail(deps, scope, user, email, token)
 
   return {
     id: invitation.id,
@@ -102,6 +117,44 @@ export async function listInvitations(scope: TenantScope) {
   }))
 }
 
+export async function revokeInvitation(scope: TenantScope, id: string) {
+  authorize(policy.manageInvitations(scope.role), 'Only admins can manage invitations')
+  await scope.tx(async (trx) => {
+    if (!(await repo.deleteOpenInvitation(trx, scope.tenant.id, id))) throw invitationNotFound()
+    await recordAudit(trx, scope.tenant.id, {
+      action: 'invitation.revoked',
+      targetType: 'invitation',
+      targetId: id,
+    })
+  })
+  return { ok: true as const }
+}
+
+export async function resendInvitation(deps: Deps, scope: TenantScope, user: User, id: string) {
+  authorize(policy.manageInvitations(scope.role), 'Only admins can manage invitations')
+  const token = randomBytes(32).toString('base64url')
+  const invitation = await scope.tx(async (trx) => {
+    const refreshed = await repo.refreshOpenInvitation(trx, scope.tenant.id, id, {
+      token,
+      expiresAt: inviteExpiry(),
+    })
+    if (!refreshed) throw invitationNotFound()
+    await recordAudit(trx, scope.tenant.id, {
+      action: 'invitation.resent',
+      targetType: 'invitation',
+      targetId: id,
+    })
+    return refreshed
+  })
+  await sendInvitationEmail(deps, scope, user, invitation.email, token)
+  return {
+    id: invitation.id,
+    email: invitation.email,
+    role: invitation.role as 'admin' | 'member',
+    expiresAt: invitation.expires_at,
+  }
+}
+
 /** The token is the credential, but it only works for the invited email address. */
 export async function acceptInvitation(deps: Deps, user: User, token: string) {
   const invitation = await withSystem(deps.db, (trx) => repo.findOpenInvitationByToken(trx, token))
@@ -111,6 +164,15 @@ export async function acceptInvitation(deps: Deps, user: User, token: string) {
   }
 
   const tenant = await withTenant(deps.db, invitation.tenant_id, async (trx) => {
+    // Seats may have filled since the invite went out. Pending invitations are excluded:
+    // this one is already counted, so only confirmed members compete for the limit.
+    const maxMembers = await entitlement<number>(trx, invitation.tenant_id, 'max_members')
+    if (
+      maxMembers !== undefined &&
+      (await repo.countMembers(trx, invitation.tenant_id)) >= maxMembers
+    ) {
+      throw new ORPCError('FORBIDDEN', { message: 'Member limit reached for your plan' })
+    }
     await repo.insertMembership(trx, invitation.tenant_id, user.id, invitation.role)
     await repo.markInvitationAccepted(trx, invitation.id)
     await recordAudit(trx, invitation.tenant_id, {

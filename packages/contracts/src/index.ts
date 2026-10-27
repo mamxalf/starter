@@ -1,6 +1,7 @@
 import type { InferContractRouterInputs, InferContractRouterOutputs } from '@orpc/contract'
 import { filesContract } from './modules/files'
 import { meContract } from './modules/me'
+import { membersContract } from './modules/members'
 import { projectsContract } from './modules/projects'
 import { tenantsContract } from './modules/tenants'
 // [gen:contract-imports]
@@ -12,6 +13,7 @@ import { tenantsContract } from './modules/tenants'
 export const contract = {
   me: meContract,
   tenants: tenantsContract,
+  members: membersContract,
   projects: projectsContract,
   files: filesContract,
   // [gen:contracts]
@@ -23,6 +25,7 @@ export type Outputs = InferContractRouterOutputs<Contract>
 
 export * from './modules/files'
 export * from './modules/me'
+export * from './modules/members'
 export * from './modules/projects'
 export * from './modules/tenants'
 // [gen:contract-exports]
