@@ -140,7 +140,7 @@ Aplikasi terhubung sebagai role **non-superuser** (`app`), karena superuser sela
 
 **Otorisasi:** role `owner > admin > member` per membership, dan fungsi policy di `src/core/policy.ts` (`policy.deleteProject(role)`). Clerk Organizations sengaja tidak dipakai.
 
-**Anggota:** tenant selalu punya tepat satu owner (partial unique index `memberships_one_owner`); kepemilikan hanya berpindah lewat `members.transferOwnership`, yang menurunkan owner lama menjadi admin dalam transaksi yang sama. Owner mengelola semua orang; admin hanya mengelola member biasa; member hanya bisa keluar. Owner tidak bisa keluar tanpa mentransfer. Saat undangan diterima, `max_members` dicek ulang terhadap anggota yang sudah terkonfirmasi.
+**Anggota:** tenant selalu punya tepat satu owner (partial unique index `memberships_one_owner`); kepemilikan hanya berpindah lewat `members.transferOwnership`, yang menurunkan owner lama menjadi admin dalam transaksi yang sama. Owner mengelola semua orang; admin hanya mengelola member biasa, dan hanya owner yang boleh memberi role admin (lewat ubah role maupun undangan; undangan admin juga hanya bisa dikirim ulang atau dibatalkan owner); member hanya bisa keluar. Owner tidak bisa keluar tanpa mentransfer. Saat undangan diterima, `max_members` dicek ulang terhadap anggota yang sudah terkonfirmasi.
 
 ## 8. Auth yang bisa diganti
 

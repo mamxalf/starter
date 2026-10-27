@@ -143,3 +143,15 @@ export async function refreshOpenInvitation(
     .returning(['id', 'email', 'role', 'expires_at'])
     .executeTakeFirst()
 }
+
+export async function findOpenInvitation(trx: Transaction<DB>, tenantId: string, id: string) {
+  return trx
+    .selectFrom('invitations')
+    .select(['id', 'role'])
+    .where('tenant_id', '=', tenantId)
+    .where('id', '=', id)
+    .where('accepted_at', 'is', null)
+    .where('expires_at', '>', new Date())
+    .forUpdate()
+    .executeTakeFirst()
+}

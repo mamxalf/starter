@@ -140,7 +140,7 @@ The app connects as a **non-superuser** role (`app`), because superusers always 
 
 **Authorization:** `owner > admin > member` per membership, plus policy functions in `src/core/policy.ts` (`policy.deleteProject(role)`). Clerk Organizations are deliberately not used.
 
-**Members:** a tenant always has exactly one owner (partial unique index `memberships_one_owner`); ownership moves only through `members.transferOwnership`, which demotes the old owner to admin in the same transaction. The owner manages everyone; an admin manages plain members only; a member can only leave. The owner cannot leave without transferring. Accepting an invitation re-checks `max_members` against confirmed members.
+**Members:** a tenant always has exactly one owner (partial unique index `memberships_one_owner`); ownership moves only through `members.transferOwnership`, which demotes the old owner to admin in the same transaction. The owner manages everyone; an admin manages plain members only, and only the owner can grant the admin role (by role change or invitation, and only the owner can resend or revoke an admin invitation); a member can only leave. The owner cannot leave without transferring. Accepting an invitation re-checks `max_members` against confirmed members.
 
 ## 8. Swappable auth
 

@@ -1,7 +1,15 @@
 import { randomBytes } from 'node:crypto'
 import { ORPCError } from '@orpc/server'
-import type { Inputs, Locale, Outputs } from '@starter/contracts'
-import { newId, type Selectable, type Tenants, withSystem, withTenant } from '@starter/db'
+import type { Inputs, Locale, Outputs, Role } from '@starter/contracts'
+import {
+  type DB,
+  newId,
+  type Selectable,
+  type Tenants,
+  type Transaction,
+  withSystem,
+  withTenant,
+} from '@starter/db'
 import { recordAudit } from '../../core/audit'
 import { entitlement, startTrial } from '../../core/billing'
 import { isUniqueViolation } from '../../core/errors'
@@ -72,6 +80,7 @@ export async function invite(
   input: Inputs['tenants']['invite'],
 ) {
   authorize(policy.inviteMembers(scope.role), 'Only admins can invite members')
+  authorize(policy.assignRole(scope.role, input.role), 'Only the owner can invite admins')
   const token = randomBytes(32).toString('base64url')
   const email = input.email.toLowerCase()
 
@@ -117,9 +126,20 @@ export async function listInvitations(scope: TenantScope) {
   }))
 }
 
+/** Admins handle member invitations only; reading the role first also yields NOT_FOUND for foreign ids. */
+async function authorizeInvitation(trx: Transaction<DB>, scope: TenantScope, id: string) {
+  const open = await repo.findOpenInvitation(trx, scope.tenant.id, id)
+  if (!open) throw invitationNotFound()
+  authorize(
+    policy.manageInvitation(scope.role, open.role as Role),
+    'Only the owner can manage admin invitations',
+  )
+}
+
 export async function revokeInvitation(scope: TenantScope, id: string) {
   authorize(policy.manageInvitations(scope.role), 'Only admins can manage invitations')
   await scope.tx(async (trx) => {
+    await authorizeInvitation(trx, scope, id)
     if (!(await repo.deleteOpenInvitation(trx, scope.tenant.id, id))) throw invitationNotFound()
     await recordAudit(trx, scope.tenant.id, {
       action: 'invitation.revoked',
@@ -134,6 +154,7 @@ export async function resendInvitation(deps: Deps, scope: TenantScope, user: Use
   authorize(policy.manageInvitations(scope.role), 'Only admins can manage invitations')
   const token = randomBytes(32).toString('base64url')
   const invitation = await scope.tx(async (trx) => {
+    await authorizeInvitation(trx, scope, id)
     const refreshed = await repo.refreshOpenInvitation(trx, scope.tenant.id, id, {
       token,
       expiresAt: inviteExpiry(),

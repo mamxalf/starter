@@ -32,6 +32,7 @@ export async function changeRole(scope: TenantScope, input: Inputs['members']['c
       policy.manageMember(scope.role, target.role as Role),
       'Not allowed to change this member',
     )
+    authorize(policy.assignRole(scope.role, input.role), 'Only the owner can grant the admin role')
     if (target.role === input.role) return toMember(target)
 
     await repo.updateRole(trx, scope.tenant.id, target.user_id, input.role)

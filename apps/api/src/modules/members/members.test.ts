@@ -80,13 +80,25 @@ describe('members.list', () => {
 })
 
 describe('members.changeRole', () => {
-  it('lets an admin promote and demote plain members', async () => {
+  it('lets only the owner grant admin', async () => {
+    await expect(
+      call(() => as('admin1').members.changeRole({ userId: idOf('member2'), role: 'admin' })),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    expect(await roleOf('member2')).toBe('member')
+
     const promoted = await call(() =>
-      as('admin1').members.changeRole({ userId: idOf('member2'), role: 'admin' }),
+      as('owner').members.changeRole({ userId: idOf('member2'), role: 'admin' }),
     )
     expect(promoted.role).toBe('admin')
     await call(() => as('owner').members.changeRole({ userId: idOf('member2'), role: 'member' }))
     expect(await roleOf('member2')).toBe('member')
+  })
+
+  it('lets an admin manage plain members without escalating them', async () => {
+    const same = await call(() =>
+      as('admin1').members.changeRole({ userId: idOf('member2'), role: 'member' }),
+    )
+    expect(same.role).toBe('member')
   })
 
   it('stops an admin from changing the owner or another admin', async () => {
@@ -255,6 +267,30 @@ describe('invitations: revoke and resend', () => {
     await expect(
       call(() => as('owner').tenants.revokeInvitation({ id: invitation.id })),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  })
+
+  it('lets only the owner invite admins', async () => {
+    await expect(
+      call(() => as('admin1').tenants.invite({ email: 'newbie@example.com', role: 'admin' })),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+
+    const adminInvite = await call(() =>
+      as('owner').tenants.invite({ email: 'newbie@example.com', role: 'admin' }),
+    )
+    const memberInvite = await call(() =>
+      as('admin1').tenants.invite({ email: 'other@example.com', role: 'member' }),
+    )
+
+    // An admin cannot touch the admin invitation, but handles member invitations.
+    await expect(
+      call(() => as('admin1').tenants.resendInvitation({ id: adminInvite.id })),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    await expect(
+      call(() => as('admin1').tenants.revokeInvitation({ id: adminInvite.id })),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    await call(() => as('admin1').tenants.resendInvitation({ id: memberInvite.id }))
+    await call(() => as('admin1').tenants.revokeInvitation({ id: memberInvite.id }))
+    await call(() => as('owner').tenants.revokeInvitation({ id: adminInvite.id }))
   })
 
   it('is admin only', async () => {

@@ -60,7 +60,7 @@ function MembersPage() {
         </CardBody>
       </Card>
 
-      {isAdmin && <InviteForm />}
+      {isAdmin && <InviteForm actor={current.role} />}
 
       {isAdmin && (
         <Card>
@@ -72,7 +72,7 @@ function MembersPage() {
               <p className="p-5 text-sm text-muted-foreground">{m.invitations_none()}</p>
             )}
             {invitations.map((invitation) => (
-              <InvitationRow key={invitation.id} invitation={invitation} />
+              <InvitationRow key={invitation.id} invitation={invitation} actor={current.role} />
             ))}
           </CardBody>
         </Card>
@@ -137,7 +137,7 @@ function MemberRow({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {manageable ? (
+          {manageable && actor === 'owner' ? (
             <select
               aria-label={m.members_role()}
               className={inputStyles({ className: 'h-8 w-auto px-2' })}
@@ -206,7 +206,7 @@ function MemberRow({
 
 const NewInvite = z.object({ email: z.email(), role: z.enum(['admin', 'member']) })
 
-function InviteForm() {
+function InviteForm({ actor }: { actor: Role }) {
   const queryClient = useQueryClient()
   const invite = useMutation(
     orpc.tenants.invite.mutationOptions({
@@ -252,23 +252,25 @@ function InviteForm() {
               )}
             </form.Field>
           </div>
-          <form.Field name="role">
-            {(field) => (
-              <Field label={m.members_role()}>
-                {(control) => (
-                  <select
-                    {...control}
-                    className={inputStyles({ className: 'w-auto' })}
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value as 'admin' | 'member')}
-                  >
-                    <option value="member">{roleLabel.member()}</option>
-                    <option value="admin">{roleLabel.admin()}</option>
-                  </select>
-                )}
-              </Field>
-            )}
-          </form.Field>
+          {actor === 'owner' && (
+            <form.Field name="role">
+              {(field) => (
+                <Field label={m.members_role()}>
+                  {(control) => (
+                    <select
+                      {...control}
+                      className={inputStyles({ className: 'w-auto' })}
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value as 'admin' | 'member')}
+                    >
+                      <option value="member">{roleLabel.member()}</option>
+                      <option value="admin">{roleLabel.admin()}</option>
+                    </select>
+                  )}
+                </Field>
+              )}
+            </form.Field>
+          )}
           <Button type="submit" disabled={invite.isPending}>
             {m.members_invite_send()}
           </Button>
@@ -283,8 +285,10 @@ function InviteForm() {
 
 function InvitationRow({
   invitation,
+  actor,
 }: {
   invitation: { id: string; email: string; role: 'admin' | 'member'; expiresAt: Date }
+  actor: Role
 }) {
   const queryClient = useQueryClient()
   const refresh = () => queryClient.invalidateQueries({ queryKey: orpc.tenants.key() })
@@ -303,24 +307,26 @@ function InvitationRow({
             {m.invitations_expires({ date: formatDate(invitation.expiresAt) })}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={busy}
-            onClick={() => resend.mutate({ id: invitation.id })}
-          >
-            {m.invitations_resend()}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={busy}
-            onClick={() => revoke.mutate({ id: invitation.id })}
-          >
-            {m.invitations_revoke()}
-          </Button>
-        </div>
+        {(actor === 'owner' || invitation.role === 'member') && (
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={busy}
+              onClick={() => resend.mutate({ id: invitation.id })}
+            >
+              {m.invitations_resend()}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => revoke.mutate({ id: invitation.id })}
+            >
+              {m.invitations_revoke()}
+            </Button>
+          </div>
+        )}
       </div>
       {error && <p className="text-sm text-danger">{rpcErrorMessage(error)}</p>}
     </div>

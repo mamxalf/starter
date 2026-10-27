@@ -12,6 +12,12 @@ export const atLeast = (role: Role, minimum: Role): boolean => RANK[role] >= RAN
 export const policy = {
   inviteMembers: (role: Role) => atLeast(role, 'admin'),
   manageInvitations: (role: Role) => atLeast(role, 'admin'),
+  /** Only the owner hands out admin; admins can grant plain membership. */
+  assignRole: (actor: Role, newRole: Role) =>
+    newRole === 'admin' ? actor === 'owner' : atLeast(actor, 'admin'),
+  /** An admin handles member invitations only: an admin invitation is the owner's to resend or revoke. */
+  manageInvitation: (actor: Role, invitationRole: Role) =>
+    actor === 'owner' || (actor === 'admin' && invitationRole === 'member'),
   /** The owner manages everyone else; an admin manages plain members only. */
   manageMember: (actor: Role, target: Role) =>
     target !== 'owner' && (actor === 'owner' || (actor === 'admin' && target === 'member')),
