@@ -23,6 +23,7 @@
     "@starter/i18n": "workspace:*",
     "@starter/platform": "workspace:*",
     "fastify": "5.12.7",
+    "jose": "6.2.13",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "zod": "4.6.7"

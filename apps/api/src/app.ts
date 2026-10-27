@@ -10,7 +10,9 @@ import { sql } from '@starter/db'
 import { runWithContext } from '@starter/platform/context'
 import { logger } from '@starter/platform/logger'
 import Fastify, { type FastifyRequest } from 'fastify'
+import { adminRouter } from './admin/router'
 import type { Deps } from './deps'
+import type { BaseContext } from './orpc'
 import { router } from './router'
 
 export type AppOptions = {
@@ -58,26 +60,43 @@ export async function buildApp(deps: Deps, options: AppOptions = {}) {
     }
   })
 
-  const rpc = new RPCHandler(router, {
-    interceptors: [
-      onError((error) => {
-        const status = (error as { status?: number }).status ?? 500
-        if (status >= 500) logger.error({ err: error }, 'rpc error')
-      }),
-    ],
-  })
+  const logRpcError = (error: unknown) => {
+    const status = (error as { status?: number }).status ?? 500
+    if (status >= 500) logger.error({ err: error }, 'rpc error')
+  }
 
-  app.all('/api/rpc/*', async (req, reply) => {
-    const request = toWebRequest(req)
-    const locale = req.headers['accept-language']?.toString().startsWith('en') ? 'en' : 'id'
-    await runWithContext({ requestId: String(req.id), locale }, async () => {
-      const { matched } = await rpc.handle(req, reply, {
-        prefix: '/api/rpc',
-        context: { deps, request },
+  /** One RPC mount: web Request for AuthPort, locale from Accept-Language, request context for logs/audit. */
+  const mountRpc = (
+    prefix: `/${string}`,
+    handler: RPCHandler<BaseContext>,
+    allow?: (req: FastifyRequest) => boolean,
+  ) => {
+    app.all(`${prefix}/*`, async (req, reply) => {
+      if (allow && !allow(req)) return reply.status(404).send({ message: 'Not found' })
+      const request = toWebRequest(req)
+      const locale = req.headers['accept-language']?.toString().startsWith('en') ? 'en' : 'id'
+      await runWithContext({ requestId: String(req.id), locale }, async () => {
+        const { matched } = await handler.handle(req, reply, {
+          prefix,
+          context: { deps, request },
+        })
+        if (!matched) reply.status(404).send({ message: 'Not found' })
       })
-      if (!matched) reply.status(404).send({ message: 'Not found' })
     })
-  })
+  }
+
+  mountRpc('/api/rpc', new RPCHandler(router, { interceptors: [onError(logRpcError)] }))
+
+  // Platform admin API: mounted only when PLATFORM_ADMINS is set, and in production only on ADMIN_HOST.
+  // Anything else answers 404 like an unknown route.
+  if (deps.admin.platformAdmins.length > 0) {
+    const adminHost = deps.admin.adminHost?.toLowerCase()
+    mountRpc(
+      '/api/admin/rpc',
+      new RPCHandler(adminRouter, { interceptors: [onError(logRpcError)] }),
+      (req) => !adminHost || req.host.toLowerCase() === adminHost,
+    )
+  }
 
   const webDist = options.webDist ? resolve(options.webDist) : undefined
   if (webDist && existsSync(webDist)) {
