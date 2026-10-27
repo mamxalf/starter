@@ -6,7 +6,6 @@ import rateLimit from '@fastify/rate-limit'
 import fastifyStatic from '@fastify/static'
 import { onError } from '@orpc/server'
 import { RPCHandler } from '@orpc/server/fastify'
-import { TENANT_HEADER } from '@starter/contracts'
 import { sql } from '@starter/db'
 import { runWithContext } from '@starter/platform/context'
 import { logger } from '@starter/platform/logger'
@@ -17,6 +16,8 @@ import { router } from './router'
 export type AppOptions = {
   /** Built SPA directory to serve same-origin (production). */
   webDist?: string
+  /** Requests per minute per IP. Defaults to 300. */
+  rateLimitMax?: number
 }
 
 /** Fastify request → web Request, so AuthPort adapters never see Fastify. */
@@ -38,11 +39,12 @@ export async function buildApp(deps: Deps, options: AppOptions = {}) {
 
   // CSP is left to the SPA/CDN layer; enable and tune it once your asset origins are fixed.
   await app.register(helmet, { contentSecurityPolicy: false })
+  // Keyed by IP only: any request header is client-controlled and would let callers dodge the limit.
+  // Per-user limits for sensitive procedures live in the routers (core/rate-limit.ts).
   await app.register(rateLimit, {
-    max: 300,
+    max: options.rateLimitMax ?? 300,
     timeWindow: '1 minute',
-    // Per tenant when known, else per IP: one noisy tenant cannot starve the others.
-    keyGenerator: (req) => (req.headers[TENANT_HEADER] as string | undefined) ?? req.ip,
+    keyGenerator: (req) => req.ip,
   })
 
   // Liveness: the process is up. Readiness: dependencies are reachable (used by Kamal).

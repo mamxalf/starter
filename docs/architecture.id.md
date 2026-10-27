@@ -198,7 +198,9 @@ trialing → active ─(7 hari sebelum periode habis: invoice)─▶ dibayar →
 | Error tracking | Sentry SDK bila `SENTRY_DSN` diisi (kompatibel dengan GlitchTip self-host) |
 | Health         | `/healthz` (proses hidup), `/readyz` (DB tersambung; dipakai Kamal)        |
 | Audit log      | `audit_events`, ditulis dari service lewat `recordAudit`                   |
-| Rate limit     | 300 request/menit per tenant (atau per IP bila anonim)                     |
+| Rate limit     | 300 request/menit per IP; 10/menit per user pada invite                    |
+
+Counter rate limit disimpan di memori: cukup untuk satu VPS, perlu store bersama bila API di-scale out.
 
 ## 13. Kualitas
 

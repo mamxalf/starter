@@ -1,5 +1,9 @@
+import { createLimiter } from '../../core/rate-limit'
 import { authed, tenantRead, tenantWrite } from '../../orpc'
 import * as service from './tenants.service'
+
+const limitInvite = createLimiter({ max: 10 })
+const limitAccept = createLimiter({ max: 10 })
 
 export const tenantsRouter = {
   create: authed.tenants.create.handler(({ context, input }) =>
@@ -12,15 +16,23 @@ export const tenantsRouter = {
     subscriptionStatus: context.subscriptionStatus,
   })),
 
-  invite: tenantWrite.tenants.invite.handler(({ context, input }) =>
-    service.invite(context.deps, context, context.user, input),
-  ),
+  invite: tenantWrite.tenants.invite
+    .use(({ context, next }) => {
+      limitInvite(context.user.id)
+      return next()
+    })
+    .handler(({ context, input }) => service.invite(context.deps, context, context.user, input)),
 
   listInvitations: tenantRead.tenants.listInvitations.handler(({ context }) =>
     service.listInvitations(context),
   ),
 
-  acceptInvitation: authed.tenants.acceptInvitation.handler(({ context, input }) =>
-    service.acceptInvitation(context.deps, context.user, input.token),
-  ),
+  acceptInvitation: authed.tenants.acceptInvitation
+    .use(({ context, next }) => {
+      limitAccept(context.user.id)
+      return next()
+    })
+    .handler(({ context, input }) =>
+      service.acceptInvitation(context.deps, context.user, input.token),
+    ),
 }

@@ -198,7 +198,9 @@ trialing → active ─(7 days before period end: invoice)─▶ paid → active
 | Error tracking | Sentry SDK when `SENTRY_DSN` is set (works with self-hosted GlitchTip) |
 | Health         | `/healthz` (process up), `/readyz` (DB reachable; used by Kamal)       |
 | Audit log      | `audit_events`, written from services via `recordAudit`                |
-| Rate limit     | 300 requests/minute per tenant (per IP when anonymous)                 |
+| Rate limit     | 300 requests/minute per IP; 10/minute per user on invites              |
+
+Rate-limit counters are in-memory: fine for one VPS, but a shared store is needed if the API is scaled out.
 
 ## 13. Quality
 
