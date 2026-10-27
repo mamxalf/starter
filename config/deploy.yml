@@ -17,7 +17,11 @@ servers:
 
 proxy:
   ssl: true
-  host: app.example.com
+  # The dashboard and the platform admin back-office share this one app; the API tells them apart by
+  # Host. kamal-proxy keeps the Host header and sets X-Forwarded-For itself, which the app relies on.
+  hosts:
+    - app.example.com
+    - admin.example.com
   app_port: 3000
   healthcheck:
     path: /readyz
@@ -45,6 +49,12 @@ env:
     S3_ENDPOINT: https://<account-id>.r2.cloudflarestorage.com
     S3_REGION: auto
     S3_BUCKET: app
+    # Platform admin back-office (served on ADMIN_HOST; the API answers it only there).
+    ADMIN_HOST: admin.example.com
+    PLATFORM_ADMINS: you@example.com
+    # Optional Cloudflare Access in front of the admin host. Set both or neither.
+    # CF_ACCESS_TEAM_DOMAIN: myteam.cloudflareaccess.com
+    # CF_ACCESS_AUD: <application AUD tag>
   secret:
     - DATABASE_URL
     - CLERK_SECRET_KEY

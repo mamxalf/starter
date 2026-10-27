@@ -16,7 +16,7 @@ if (env.SENTRY_DSN) {
 
 const queue = createPgBossQueue(env.DATABASE_URL)
 const deps = createDeps(env, queue)
-const app = await buildApp(deps, { webDist: env.WEB_DIST })
+const app = await buildApp(deps, { webDist: env.WEB_DIST, adminDist: env.ADMIN_DIST })
 
 // Dev convenience: one process runs jobs too. In production the worker role does this.
 if (env.NODE_ENV === 'development') await queue.work(jobHandlers(deps))

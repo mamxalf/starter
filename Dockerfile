@@ -14,6 +14,7 @@ WORKDIR /repo
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm fetch
 COPY package.json ./
+COPY apps/admin/package.json apps/admin/
 COPY apps/api/package.json apps/api/
 COPY apps/site/package.json apps/site/
 COPY apps/web/package.json apps/web/
@@ -34,19 +35,21 @@ COPY . .
 ARG VITE_AUTH_PROVIDER=clerk
 ARG VITE_CLERK_PUBLISHABLE_KEY
 ENV VITE_AUTH_PROVIDER=$VITE_AUTH_PROVIDER VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
-RUN pnpm turbo run build --filter=@starter/api --filter=@starter/web
+RUN pnpm turbo run build --filter=@starter/api --filter=@starter/web --filter=@starter/admin
 
 # The API is bundled; only packages that cannot be bundled are installed at runtime.
-RUN mkdir -p /out && cp -r apps/api/dist /out/dist && cp -r apps/web/dist /out/public \
+RUN mkdir -p /out && cp -r apps/api/dist /out/dist && cp -r apps/web/dist /out/public && cp -r apps/admin/dist /out/admin \
   && node -e "const p=require('./apps/api/package.json');require('fs').writeFileSync('/out/package.json',JSON.stringify({type:'module',dependencies:{'@sentry/node':p.dependencies['@sentry/node']}}))"
 
 FROM node:22-slim AS runtime
-ENV NODE_ENV=production WEB_DIST=/app/public PORT=3000
+# The API serves the dashboard SPA, and the admin SPA when the request host is ADMIN_HOST.
+ENV NODE_ENV=production WEB_DIST=/app/public ADMIN_DIST=/app/admin PORT=3000
 WORKDIR /app
 COPY --from=build /out/package.json ./
 RUN npm install --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY --from=build /out/dist ./dist
 COPY --from=build /out/public ./public
+COPY --from=build /out/admin ./admin
 COPY docker/entrypoint.sh /entrypoint.sh
 USER node
 EXPOSE 3000

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, statSync } from 'node:fs'
+import { relative, resolve, sep } from 'node:path'
 import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
 import fastifyStatic from '@fastify/static'
@@ -18,6 +18,8 @@ import { router } from './router'
 export type AppOptions = {
   /** Built SPA directory to serve same-origin (production). */
   webDist?: string
+  /** Built admin SPA, served instead of the web SPA when the request host is ADMIN_HOST. */
+  adminDist?: string
   /** Requests per minute per IP. Defaults to 300. */
   rateLimitMax?: number
 }
@@ -99,13 +101,34 @@ export async function buildApp(deps: Deps, options: AppOptions = {}) {
   }
 
   const webDist = options.webDist ? resolve(options.webDist) : undefined
+  const adminDist = options.adminDist ? resolve(options.adminDist) : undefined
   if (webDist && existsSync(webDist)) {
-    await app.register(fastifyStatic, { root: webDist, wildcard: false })
-    // SPA fallback: any non-API GET renders index.html; TanStack Router takes over.
-    app.setNotFoundHandler((req, reply) => {
-      if (req.method === 'GET' && !req.url.startsWith('/api/')) return reply.sendFile('index.html')
-      return reply.status(404).send({ message: 'Not found' })
+    // `serve: false` keeps only reply.sendFile(root, ...): the handler below picks the SPA by Host, so
+    // a file of one app can never be served on the other app's host.
+    await app.register(fastifyStatic, { root: webDist, serve: false })
+
+    const adminHost = deps.admin.adminHost?.toLowerCase()
+    const spaRoot = (req: FastifyRequest) => {
+      if (adminHost === undefined || String(req.host).toLowerCase() !== adminHost) return webDist
+      return adminDist && existsSync(adminDist) ? adminDist : undefined // admin host, no admin build
+    }
+
+    // Files first, otherwise the SPA's index.html (TanStack Router takes over). /api/* is never an SPA.
+    app.get('/*', async (req, reply) => {
+      const root = spaRoot(req)
+      const path = req.url.split('?')[0] ?? '/'
+      if (!root || path.startsWith('/api/')) return reply.status(404).send({ message: 'Not found' })
+      try {
+        const file = resolve(root, `.${decodeURIComponent(path)}`)
+        if (path !== '/' && file.startsWith(root + sep) && statSync(file).isFile()) {
+          return reply.sendFile(relative(root, file), root)
+        }
+      } catch {
+        // missing file, bad encoding or a path that is not one: fall through to the SPA
+      }
+      return reply.sendFile('index.html', root)
     })
+    app.setNotFoundHandler((_req, reply) => reply.status(404).send({ message: 'Not found' }))
   }
 
   return app
